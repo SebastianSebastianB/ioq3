@@ -86,9 +86,9 @@ include(basegame)
 include(missionpack)
 
 # --- Moje Mody ---
-if(BUILD_MY_MOD)
-    include(my_mod)
-endif()
+# if(BUILD_MY_MOD)
+include(my_mod)
+# endif()
 # ----------------------
 
 include(post_configure)
