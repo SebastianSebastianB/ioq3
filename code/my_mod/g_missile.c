@@ -636,6 +636,55 @@ gentity_t *fire_bfg (gentity_t *self, vec3_t start, vec3_t dir) {
 
 //=============================================================================
 
+/*
+======================================================================
+ROCKET_CLUSTER_EXPLODE
+Nasza nowa funkcja, która tworzy eksplozję kasetową.
+======================================================================
+*/
+void Rocket_Cluster_Explode( gentity_t *ent ) {
+    int i;
+    gentity_t *bomblet;
+    vec3_t dir;
+    
+    // Najpierw wywołujemy oryginalną eksplozję dla głównej rakiety
+    G_ExplodeMissile( ent );
+
+    // Teraz tworzymy 6 mniejszych "bombletów"
+    for (i = 0; i < 6; i++) {
+        // Losowy wektor kierunku
+        dir[0] = crandom() * 0.5f;
+        dir[1] = crandom() * 0.5f;
+        dir[2] = 1.0f; // Lekkie podbicie w górę
+        VectorNormalize(dir);
+        
+        // Stworzenie nowego bytu (entity) dla bombletu
+        bomblet = G_Spawn();
+        
+        // Ustawienie jego właściwości - mniejsza, słabsza rakieta
+        bomblet->classname = "cluster_bomblet";
+        bomblet->nextthink = level.time + 800; // Krótszy czas życia
+        bomblet->think = G_ExplodeMissile; // Ważne: bomblety mają NORMALNĄ eksplozję!
+        bomblet->s.eType = ET_MISSILE;
+        bomblet->r.svFlags = SVF_USE_CURRENT_ORIGIN;
+        bomblet->s.weapon = WP_ROCKET_LAUNCHER;
+        bomblet->r.ownerNum = ent->r.ownerNum;
+        bomblet->parent = ent->parent;
+        bomblet->damage = 25;
+        bomblet->splashDamage = 40;
+        bomblet->splashRadius = 80;
+        bomblet->methodOfDeath = MOD_ROCKET;
+        bomblet->splashMethodOfDeath = MOD_ROCKET_SPLASH;
+        bomblet->clipmask = MASK_SHOT;
+        
+        bomblet->s.pos.trType = TR_GRAVITY; // Nadajemy im grawitację dla ładnego łuku
+        bomblet->s.pos.trTime = level.time - MISSILE_PRESTEP_TIME;
+        VectorCopy( ent->s.pos.trBase, bomblet->s.pos.trBase );
+        VectorScale( dir, 400 + (50 * i), bomblet->s.pos.trDelta ); // Nadajemy im prędkość i rozrzut
+        SnapVector( bomblet->s.pos.trDelta );
+        VectorCopy( ent->s.pos.trBase, bomblet->r.currentOrigin );
+    }
+}
 
 /*
 =================
@@ -650,7 +699,7 @@ gentity_t *fire_rocket (gentity_t *self, vec3_t start, vec3_t dir) {
 	bolt = G_Spawn();
 	bolt->classname = "rocket";
 	bolt->nextthink = level.time + 15000;
-	bolt->think = G_ExplodeMissile;
+	bolt->think = Rocket_Cluster_Explode; //G_ExplodeMissile;
 	bolt->s.eType = ET_MISSILE;
 	bolt->r.svFlags = SVF_USE_CURRENT_ORIGIN;
 	bolt->s.weapon = WP_ROCKET_LAUNCHER;

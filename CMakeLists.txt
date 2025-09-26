@@ -14,6 +14,10 @@ option(BUILD_GAME_LIBRARIES "Build game module libraries" ON)
 option(BUILD_GAME_QVMS "Build game module qvms" ON)
 option(BUILD_STANDALONE "Build binaries for standalone games" OFF)
 
+# --- Moje Mody ---
+option(BUILD_MY_MOD "Build the 'My Awesome Mod' libraries" OFF)
+# --------------------
+
 option(USE_RENDERER_DLOPEN "Dynamically load the renderer(s)" ON)
 option(USE_OPENAL "OpenAL audio" ON)
 option(USE_OPENAL_DLOPEN "Dynamically load OpenAL" ON)
@@ -80,6 +84,12 @@ include(renderer_gl2)
 include(client)
 include(basegame)
 include(missionpack)
+
+# --- Moje Mody ---
+if(BUILD_MY_MOD)
+    include(my_mod)
+endif()
+# ----------------------
 
 include(post_configure)
 include(installer)
