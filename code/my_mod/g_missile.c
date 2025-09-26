@@ -639,18 +639,20 @@ gentity_t *fire_bfg (gentity_t *self, vec3_t start, vec3_t dir) {
 /*
 ======================================================================
 ROCKET_CLUSTER_EXPLODE
-Nasza nowa funkcja, która tworzy eksplozję kasetową.
+Nasza nowa funkcja, która tworzy eksplozję kasetową. (Wersja POPRAWIONA)
 ======================================================================
 */
 void Rocket_Cluster_Explode( gentity_t *ent ) {
+	G_Printf("--- Rocket_Cluster_Explode! ---\n");
     int i;
     gentity_t *bomblet;
     vec3_t dir;
-    
-    // Najpierw wywołujemy oryginalną eksplozję dla głównej rakiety
-    G_ExplodeMissile( ent );
+    vec3_t origin;
 
-    // Teraz tworzymy 6 mniejszych "bombletów"
+    // POPRAWKA: Zapisujemy pozycję rakiety PRZED jej zniszczeniem
+    VectorCopy( ent->s.pos.trBase, origin );
+
+    // --- NAJPIERW tworzymy 6 mniejszych "bombletów" ---
     for (i = 0; i < 6; i++) {
         // Losowy wektor kierunku
         dir[0] = crandom() * 0.5f;
@@ -677,13 +679,17 @@ void Rocket_Cluster_Explode( gentity_t *ent ) {
         bomblet->splashMethodOfDeath = MOD_ROCKET_SPLASH;
         bomblet->clipmask = MASK_SHOT;
         
-        bomblet->s.pos.trType = TR_GRAVITY; // Nadajemy im grawitację dla ładnego łuku
+        bomblet->s.pos.trType = TR_GRAVITY;
         bomblet->s.pos.trTime = level.time - MISSILE_PRESTEP_TIME;
-        VectorCopy( ent->s.pos.trBase, bomblet->s.pos.trBase );
-        VectorScale( dir, 400 + (50 * i), bomblet->s.pos.trDelta ); // Nadajemy im prędkość i rozrzut
+        // POPRAWKA: Używamy zapisanej pozycji
+        VectorCopy( origin, bomblet->s.pos.trBase );
+        VectorScale( dir, 400 + (random() * 150), bomblet->s.pos.trDelta ); // Dajemy im prędkość i większy losowy rozrzut
         SnapVector( bomblet->s.pos.trDelta );
-        VectorCopy( ent->s.pos.trBase, bomblet->r.currentOrigin );
+        VectorCopy( origin, bomblet->r.currentOrigin );
     }
+
+    // --- DOPIERO TERAZ wywołujemy oryginalną eksplozję i niszczymy główną rakietę ---
+    G_ExplodeMissile( ent );
 }
 
 /*
@@ -692,6 +698,7 @@ fire_rocket
 =================
 */
 gentity_t *fire_rocket (gentity_t *self, vec3_t start, vec3_t dir) {
+	G_Printf("--- MODDED ROCKET FIRED 222! ---\n");
 	gentity_t	*bolt;
 
 	VectorNormalize (dir);
