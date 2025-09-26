@@ -24,6 +24,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #define	MISSILE_PRESTEP_TIME	50
 
+// Forward declaration dla funkcji eksplozji klastrowej
+void Rocket_Cluster_Explode( gentity_t *ent );
+
 /*
 ================
 G_BounceMissile
@@ -418,6 +421,17 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		G_AddEvent( ent, EV_MISSILE_MISS, DirToByte( trace->plane.normal ) );
 	}
 
+	// Sprawdź czy to rakieta - jeśli tak, użyj eksplozji klastrowej
+	if ( ent->s.weapon == WP_ROCKET_LAUNCHER && !strcmp(ent->classname, "rocket") ) {
+		G_Printf("--- ROCKET HIT - CLUSTER EXPLOSION! ---\n");
+		// Ustaw pozycję rakiety na punkt uderzenia
+		SnapVectorTowards( trace->endpos, ent->s.pos.trBase );
+		G_SetOrigin( ent, trace->endpos );
+		// Wywołaj eksplozję klastrową
+		Rocket_Cluster_Explode( ent );
+		return; // Ważne: wyjście z funkcji, żeby nie wykonać standardowej eksplozji
+	}
+
 	ent->freeAfterEvent = qtrue;
 
 	// change over to a normal entity right at the point of impact
@@ -649,8 +663,8 @@ void Rocket_Cluster_Explode( gentity_t *ent ) {
     vec3_t dir;
     vec3_t origin;
 
-    // POPRAWKA: Zapisujemy pozycję rakiety PRZED jej zniszczeniem
-    VectorCopy( ent->s.pos.trBase, origin );
+    // Używamy bieżącej pozycji rakiety (punkt uderzenia)
+    VectorCopy( ent->r.currentOrigin, origin );
 
     // --- NAJPIERW tworzymy 6 mniejszych "bombletów" ---
     for (i = 0; i < 6; i++) {
@@ -665,7 +679,7 @@ void Rocket_Cluster_Explode( gentity_t *ent ) {
         
         // Ustawienie jego właściwości - mniejsza, słabsza rakieta
         bomblet->classname = "cluster_bomblet";
-        bomblet->nextthink = level.time + 800; // Krótszy czas życia
+        bomblet->nextthink = level.time + 2000; // Krótszy czas życia
         bomblet->think = G_ExplodeMissile; // Ważne: bomblety mają NORMALNĄ eksplozję!
         bomblet->s.eType = ET_MISSILE;
         bomblet->r.svFlags = SVF_USE_CURRENT_ORIGIN;
@@ -698,15 +712,15 @@ fire_rocket
 =================
 */
 gentity_t *fire_rocket (gentity_t *self, vec3_t start, vec3_t dir) {
-	G_Printf("--- MODDED ROCKET FIRED 222! ---\n");
+	G_Printf("--- MODDED ROCKET FIRED 333! ---\n");
 	gentity_t	*bolt;
 
 	VectorNormalize (dir);
 
 	bolt = G_Spawn();
 	bolt->classname = "rocket";
-	bolt->nextthink = level.time + 15000;
-	bolt->think = Rocket_Cluster_Explode; //G_ExplodeMissile;
+	bolt->nextthink = level.time + 15000; // Standardowy długi czas życia (15 sekund)
+	bolt->think = G_ExplodeMissile; // Standardowa eksplozja jako fallback
 	bolt->s.eType = ET_MISSILE;
 	bolt->r.svFlags = SVF_USE_CURRENT_ORIGIN;
 	bolt->s.weapon = WP_ROCKET_LAUNCHER;
@@ -729,6 +743,7 @@ gentity_t *fire_rocket (gentity_t *self, vec3_t start, vec3_t dir) {
 
 	return bolt;
 }
+
 
 /*
 =================
