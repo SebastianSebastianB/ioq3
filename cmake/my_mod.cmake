@@ -76,15 +76,25 @@ file(GLOB UI_MYMOD_SOURCES
 
 message(STATUS "UI GLOB znalazł: ${UI_MYMOD_SOURCES}")
 
-# Usuń problematyczne pliki z ui
+# Usuń problematyczne pliki z ui (ui_syscalls.c używamy oryginalny)
 list(REMOVE_ITEM UI_MYMOD_SOURCES 
-    "${SOURCE_DIR}/my_mod/ui_syscalls.c"  # Usuń jeśli istnieje w my_mod
+    "${SOURCE_DIR}/my_mod/ui_syscalls.c"
 )
+
+# Usuń pliki związane z rankingami (powodują błędy kompilacji)
+list(FILTER UI_MYMOD_SOURCES EXCLUDE REGEX ".*ui_login.*")
+list(FILTER UI_MYMOD_SOURCES EXCLUDE REGEX ".*ui_rankings.*") 
+list(FILTER UI_MYMOD_SOURCES EXCLUDE REGEX ".*ui_rankstatus.*")
+list(FILTER UI_MYMOD_SOURCES EXCLUDE REGEX ".*ui_signup.*")
+list(FILTER UI_MYMOD_SOURCES EXCLUDE REGEX ".*ui_specifyleague.*")
 
 # Dodaj pliki specyficzne dla ui
 list(APPEND UI_MYMOD_SOURCES 
     ${MYMOD_SHARED_MATH}
     "${SOURCE_DIR}/ui/ui_syscalls.c"  # Tylko oryginał z ui/
+    "${SOURCE_DIR}/game/bg_misc.c"    # Dodatkowe funkcje bg_
+    "${SOURCE_DIR}/game/bg_lib.c"     # Biblioteka bg_
+    "${SOURCE_DIR}/qcommon/q_shared.c" # Wspólne funkcje Q_
 )
 
 add_library(ui_mymod SHARED ${UI_MYMOD_SOURCES})
