@@ -677,13 +677,13 @@ void Rocket_Cluster_Explode( gentity_t *ent ) {
         // Stworzenie nowego bytu (entity) dla bombletu
         bomblet = G_Spawn();
         
-        // Ustawienie jego właściwości - mniejsza, słabsza rakieta
+        // Ustawienie jego właściwości - mniejsza, słabsza rakieta z grafiką plazmy
         bomblet->classname = "cluster_bomblet";
         bomblet->nextthink = level.time + 2000; // Krótszy czas życia
         bomblet->think = G_ExplodeMissile; // Ważne: bomblety mają NORMALNĄ eksplozję!
         bomblet->s.eType = ET_MISSILE;
         bomblet->r.svFlags = SVF_USE_CURRENT_ORIGIN;
-        bomblet->s.weapon = WP_ROCKET_LAUNCHER;
+        bomblet->s.weapon = WP_PLASMAGUN; // ZMIANA: Grafika kuli plazmy zamiast rakiety!
         bomblet->r.ownerNum = ent->r.ownerNum;
         bomblet->parent = ent->parent;
         bomblet->damage = 25;
