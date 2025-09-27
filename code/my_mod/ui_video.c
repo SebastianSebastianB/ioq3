@@ -367,14 +367,12 @@ static const char *knownRatios[ ][2] =
 
 #define MAX_RESOLUTIONS	32
 
-// === STATYCZNA LISTA RATIOS - ZAWSZE DOSTĘPNE ===
+// === STATYCZNA LISTA RATIOS - TYLKO 4 POTRZEBNE ===
 static const char* staticRatios[] = {
 	"4:3",
+	"5:4",
 	"16:9", 
 	"16:10",
-	"21:9",
-	"32:9",
-	"5:4",
 	NULL
 };
 
@@ -459,8 +457,9 @@ static void GraphicsOptions_GetAspectRatios( void )
 	Q_strncpyz( ratioBuf[5], "5:4", sizeof(ratioBuf[5]) );
 	ratioBuf[6][0] = '\0'; // końiec listy
 
-	// === ZBUDUJ MAPOWANIE RESOLUTIONS → RATIOS ===
-	for( r = 0; resolutions[r] && r < MAX_RESOLUTIONS-1; r++ )
+	// === ZBUDUJ MAPOWANIE BUILTIN RESOLUTIONS → RATIOS ===
+	// (Zawsze użyj builtin żeby mieć wszystkie panoramiczne rozdzielczości)
+	for( r = 0; builtinResolutions[r] && r < MAX_RESOLUTIONS-1; r++ )
 	{
 		int w, h;
 		char *x;
@@ -468,8 +467,8 @@ static void GraphicsOptions_GetAspectRatios( void )
 		float aspectRatio;
 
 		// calculate resolution's aspect ratio
-		x = strchr( resolutions[r], 'x' ) + 1;
-		Q_strncpyz( str, resolutions[r], x-resolutions[r] );
+		x = strchr( builtinResolutions[r], 'x' ) + 1;
+		Q_strncpyz( str, builtinResolutions[r], x-builtinResolutions[r] );
 		w = atoi( str );
 		h = atoi( x );
 		aspectRatio = (float)w / (float)h;
@@ -865,24 +864,34 @@ static void GraphicsOptions_Event( void* ptr, int event ) {
 
 	switch( ((menucommon_s*)ptr)->id ) {
 	case ID_RATIO:
-		// Map static ratio index to resolution
-		{
-			const char* selectedRatio = staticRatios[ s_graphicsoptions.ratio.curvalue ];
-			int targetRes = -1;
-			
-			// Find first resolution that matches this ratio
-			for( int r = 0; resolutions[r] && r < MAX_RESOLUTIONS-1; r++ ) {
-				if( ratios[r] && !Q_stricmp( ratios[r], selectedRatio ) ) {
-					targetRes = r;
-					break;
-				}
-			}
-			
-			if( targetRes != -1 ) {
-				s_graphicsoptions.mode.curvalue = targetRes;
-			}
+		// Ustawienie odpowiedniego aspect ratio w cvar i przykładowej rozdzielczości
+		// curvalue jest już automatycznie zmienione przez spincontrol
+		switch(s_graphicsoptions.ratio.curvalue) {
+			case 0: // 4:3
+				trap_Cvar_Set("r_customAspectRatio", "1.333333");
+				trap_Cvar_Set("r_customwidth", "1024");
+				trap_Cvar_Set("r_customheight", "768");
+				break;
+			case 1: // 5:4
+				trap_Cvar_Set("r_customAspectRatio", "1.25");
+				trap_Cvar_Set("r_customwidth", "1280");
+				trap_Cvar_Set("r_customheight", "1024");
+				break;
+			case 2: // 16:9
+				trap_Cvar_Set("r_customAspectRatio", "1.777778");
+				trap_Cvar_Set("r_customwidth", "1920");
+				trap_Cvar_Set("r_customheight", "1080");
+				break;
+			case 3: // 16:10
+				trap_Cvar_Set("r_customAspectRatio", "1.6");
+				trap_Cvar_Set("r_customwidth", "1920");
+				trap_Cvar_Set("r_customheight", "1200");
+				break;
 		}
-		// fall through to apply mode constraints
+		// Ustaw tryb na custom (-1)
+		s_graphicsoptions.mode.curvalue = 0; // Custom mode
+		trap_Cvar_Set("r_mode", "-1");
+		break;
 		
 	case ID_MODE:
 		// clamp 3dfx video modes
@@ -893,16 +902,58 @@ static void GraphicsOptions_Event( void* ptr, int event ) {
 			else if ( s_graphicsoptions.mode.curvalue > 6 )
 				s_graphicsoptions.mode.curvalue = 6;
 		}
-		s_graphicsoptions.ratio.curvalue =
-			resToRatio[ s_graphicsoptions.mode.curvalue ];
+		// Update ratio based on new mode
+		{
+			const char* currentRes = resolutions[ s_graphicsoptions.mode.curvalue ];
+			int w, h;
+			char *x;
+			float aspectRatio;
+			
+			if( currentRes && strchr( currentRes, 'x' ) ) {
+				x = strchr( currentRes, 'x' ) + 1;
+				char temp[16];
+				Q_strncpyz( temp, currentRes, x-currentRes );
+				w = atoi( temp );
+				h = atoi( x );
+				aspectRatio = (float)w / (float)h;
+				
+				if( aspectRatio >= 1.75 && aspectRatio <= 1.8 ) s_graphicsoptions.ratio.curvalue = 2;  // 16:9
+				else if( aspectRatio >= 1.58 && aspectRatio <= 1.62 ) s_graphicsoptions.ratio.curvalue = 3; // 16:10
+				else if( aspectRatio >= 1.24 && aspectRatio <= 1.26 ) s_graphicsoptions.ratio.curvalue = 1; // 5:4
+				else s_graphicsoptions.ratio.curvalue = 0; // 4:3
+			} else {
+				s_graphicsoptions.ratio.curvalue = 0;
+			}
+		}
 		break;
 
 	case ID_LIST:
 		ivo = &s_ivo_templates[s_graphicsoptions.list.curvalue];
 
 		s_graphicsoptions.mode.curvalue        = GraphicsOptions_FindDetectedResolution(ivo->mode);
-		s_graphicsoptions.ratio.curvalue =
-			resToRatio[ s_graphicsoptions.mode.curvalue ];
+		// Update ratio based on template mode
+		{
+			const char* currentRes = resolutions[ s_graphicsoptions.mode.curvalue ];
+			int w, h;
+			char *x;
+			float aspectRatio;
+			
+			if( currentRes && strchr( currentRes, 'x' ) ) {
+				x = strchr( currentRes, 'x' ) + 1;
+				char temp[16];
+				Q_strncpyz( temp, currentRes, x-currentRes );
+				w = atoi( temp );
+				h = atoi( x );
+				aspectRatio = (float)w / (float)h;
+				
+				if( aspectRatio >= 1.75 && aspectRatio <= 1.8 ) s_graphicsoptions.ratio.curvalue = 2;  // 16:9
+				else if( aspectRatio >= 1.58 && aspectRatio <= 1.62 ) s_graphicsoptions.ratio.curvalue = 3; // 16:10
+				else if( aspectRatio >= 1.24 && aspectRatio <= 1.26 ) s_graphicsoptions.ratio.curvalue = 1; // 5:4
+				else s_graphicsoptions.ratio.curvalue = 0; // 4:3
+			} else {
+				s_graphicsoptions.ratio.curvalue = 0;
+			}
+		}
 		s_graphicsoptions.tq.curvalue          = ivo->tq;
 		s_graphicsoptions.lighting.curvalue    = ivo->lighting;
 		s_graphicsoptions.colordepth.curvalue  = ivo->colordepth;
@@ -1004,8 +1055,30 @@ static void GraphicsOptions_SetMenuItems( void )
 			s_graphicsoptions.mode.curvalue = 3;
 		}
 	}
-	s_graphicsoptions.ratio.curvalue =
-		resToRatio[ s_graphicsoptions.mode.curvalue ];
+	// === ZNAJDŹ RATIO DLA AKTUALNEJ ROZDZIELCZOŚCI ===
+	{
+		const char* currentRes = resolutions[ s_graphicsoptions.mode.curvalue ];
+		int w, h;
+		char *x;
+		float aspectRatio;
+		
+		if( currentRes && strchr( currentRes, 'x' ) ) {
+			x = strchr( currentRes, 'x' ) + 1;
+			char temp[16];
+			Q_strncpyz( temp, currentRes, x-currentRes );
+			w = atoi( temp );
+			h = atoi( x );
+			aspectRatio = (float)w / (float)h;
+			
+			// Map to static ratio index (tylko 4 opcje)
+			if( aspectRatio >= 1.75 && aspectRatio <= 1.8 ) s_graphicsoptions.ratio.curvalue = 2; // "16:9"
+			else if( aspectRatio >= 1.58 && aspectRatio <= 1.62 ) s_graphicsoptions.ratio.curvalue = 3; // "16:10"
+			else if( aspectRatio >= 1.24 && aspectRatio <= 1.26 ) s_graphicsoptions.ratio.curvalue = 1; // "5:4"
+			else s_graphicsoptions.ratio.curvalue = 0; // "4:3" (fallback)
+		} else {
+			s_graphicsoptions.ratio.curvalue = 0; // fallback to "4:3"
+		}
+	}
 	s_graphicsoptions.fs.curvalue = trap_Cvar_VariableValue("r_fullscreen");
 	s_graphicsoptions.allow_extensions.curvalue = trap_Cvar_VariableValue("r_allowExtensions");
 	s_graphicsoptions.tq.curvalue = 3-trap_Cvar_VariableValue( "r_picmip");
