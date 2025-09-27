@@ -430,11 +430,22 @@ static qboolean resolutionsDetected = qfalse;
 // === FUNKCJA ZWRACAJĄCA ROZDZIELCZOŚCI DLA AKTUALNEGO ASPECT RATIO ===
 static const char** GraphicsOptions_GetResolutionsForRatio( int ratioIndex ) {
 	switch( ratioIndex ) {
-		case 0: return resolutions_4_3;   // 4:3
-		case 1: return resolutions_5_4;   // 5:4
-		case 2: return resolutions_16_9;  // 16:9
-		case 3: return resolutions_16_10; // 16:10
+		case 0: return resolutions_4_3;   // 4:3 - 10 opcji
+		case 1: return resolutions_5_4;   // 5:4 - 1 opcja
+		case 2: return resolutions_16_9;  // 16:9 - 7 opcji
+		case 3: return resolutions_16_10; // 16:10 - 4 opcje
 		default: return resolutions_4_3;  // fallback
+	}
+}
+
+// === FUNKCJA ZWRACAJĄCA LICZBĘ ROZDZIELCZOŚCI DLA DANEGO RATIO ===
+static int GraphicsOptions_GetResolutionsCountForRatio( int ratioIndex ) {
+	switch( ratioIndex ) {
+		case 0: return 10; // 4:3
+		case 1: return 1;  // 5:4
+		case 2: return 7;  // 16:9
+		case 3: return 4;  // 16:10
+		default: return 10; // fallback
 	}
 }
 
@@ -917,7 +928,10 @@ static void GraphicsOptions_Event( void* ptr, int event ) {
 		// Zmiana aspect ratio - aktualizacja listy dostępnych rozdzielczości
 		{
 			const char** newResolutions = GraphicsOptions_GetResolutionsForRatio( s_graphicsoptions.ratio.curvalue );
+			int newCount = GraphicsOptions_GetResolutionsCountForRatio( s_graphicsoptions.ratio.curvalue );
+			
 			s_graphicsoptions.mode.itemnames = newResolutions;
+			s_graphicsoptions.mode.numitems = newCount; // KRYTYCZNE: ustaw liczbę elementów
 			s_graphicsoptions.mode.curvalue = 0; // Reset do pierwszej rozdzielczości w nowej liście
 			
 			// Ustawienie odpowiedniego aspect ratio w cvar i pierwszej rozdzielczości z listy
@@ -939,6 +953,19 @@ static void GraphicsOptions_Event( void* ptr, int event ) {
 		break;
 		
 	case ID_MODE:
+		// === OGRANICZENIE DO DOSTĘPNYCH ROZDZIELCZOŚCI DLA AKTUALNEGO RATIO ===
+		{
+			int maxResolutions = GraphicsOptions_GetResolutionsCountForRatio( s_graphicsoptions.ratio.curvalue );
+			
+			// Ograniczenie curvalue do dostępnego zakresu
+			if( s_graphicsoptions.mode.curvalue >= maxResolutions ) {
+				s_graphicsoptions.mode.curvalue = 0; // Wróć do pierwszej rozdzielczości
+			}
+			if( s_graphicsoptions.mode.curvalue < 0 ) {
+				s_graphicsoptions.mode.curvalue = maxResolutions - 1; // Idź do ostatniej rozdzielczości
+			}
+		}
+		
 		// clamp 3dfx video modes
 		if ( s_graphicsoptions.driver.curvalue == 1 )
 		{
@@ -976,7 +1003,9 @@ static void GraphicsOptions_Event( void* ptr, int event ) {
 		
 		// Ustaw pierwszą rozdzielczość z listy 4:3
 		const char** templateResolutions = GraphicsOptions_GetResolutionsForRatio( 0 ); // 4:3
+		int templateCount = GraphicsOptions_GetResolutionsCountForRatio( 0 ); // 4:3
 		s_graphicsoptions.mode.itemnames = templateResolutions;
+		s_graphicsoptions.mode.numitems = templateCount; // KRYTYCZNE: ustaw liczbę elementów
 		s_graphicsoptions.mode.curvalue = 0; // pierwsza rozdzielczość
 		
 		// Ustaw odpowiednie cvars
@@ -1192,7 +1221,10 @@ static void GraphicsOptions_SetMenuItems( void )
 	// Po ustawieniu aspect ratio, zaktualizuj dostępne rozdzielczości
 	{
 		const char** ratioResolutions = GraphicsOptions_GetResolutionsForRatio( s_graphicsoptions.ratio.curvalue );
+		int ratioCount = GraphicsOptions_GetResolutionsCountForRatio( s_graphicsoptions.ratio.curvalue );
+		
 		s_graphicsoptions.mode.itemnames = ratioResolutions;
+		s_graphicsoptions.mode.numitems = ratioCount; // KRYTYCZNE: ustaw liczbę elementów
 		
 		// Sprawdź czy aktualna rozdzielczość pasuje do wybranego ratio
 		// Pobierz aktualną rozdzielczość z cvar
