@@ -367,6 +367,17 @@ static const char *knownRatios[ ][2] =
 
 #define MAX_RESOLUTIONS	32
 
+// === STATYCZNA LISTA RATIOS - ZAWSZE DOSTĘPNE ===
+static const char* staticRatios[] = {
+	"4:3",
+	"16:9", 
+	"16:10",
+	"21:9",
+	"32:9",
+	"5:4",
+	NULL
+};
+
 static const char* ratios[ MAX_RESOLUTIONS ];
 static char ratioBuf[ MAX_RESOLUTIONS ][ 8 ];
 static int ratioToRes[ MAX_RESOLUTIONS ];
@@ -435,47 +446,82 @@ GraphicsOptions_GetAspectRatios
 static void GraphicsOptions_GetAspectRatios( void )
 {
 	int i, r;
+	
+	// === HARDCODED APPROACH: ZBUDUJ BEZPOŚREDNIO WSZYSTKIE NASZE RATIOS ===
+	// Zamiast próbować wykrywać z rozdzielczości, po prostu dodaj wszystkie nasze ratios
+	
+	// Dodaj podstawowe ratios
+	Q_strncpyz( ratioBuf[0], "4:3", sizeof(ratioBuf[0]) );
+	Q_strncpyz( ratioBuf[1], "16:9", sizeof(ratioBuf[1]) );
+	Q_strncpyz( ratioBuf[2], "16:10", sizeof(ratioBuf[2]) );
+	Q_strncpyz( ratioBuf[3], "21:9", sizeof(ratioBuf[3]) );
+	Q_strncpyz( ratioBuf[4], "32:9", sizeof(ratioBuf[4]) );
+	Q_strncpyz( ratioBuf[5], "5:4", sizeof(ratioBuf[5]) );
+	ratioBuf[6][0] = '\0'; // końiec listy
 
-	// build ratio list from resolutions
-	for( r = 0; resolutions[r]; r++ )
+	// === ZBUDUJ MAPOWANIE RESOLUTIONS → RATIOS ===
+	for( r = 0; resolutions[r] && r < MAX_RESOLUTIONS-1; r++ )
 	{
 		int w, h;
 		char *x;
 		char str[ sizeof(ratioBuf[0]) ];
+		float aspectRatio;
 
 		// calculate resolution's aspect ratio
 		x = strchr( resolutions[r], 'x' ) + 1;
 		Q_strncpyz( str, resolutions[r], x-resolutions[r] );
 		w = atoi( str );
 		h = atoi( x );
-		Com_sprintf( str, sizeof(str), "%.2f:1", (float)w / (float)h );
+		aspectRatio = (float)w / (float)h;
 
-		// rename common ratios ("1.33:1" -> "4:3")
-		for( i = 0; knownRatios[i][0]; i++ ) {
-			if( !Q_stricmp( str, knownRatios[i][0] ) ) {
-				Q_strncpyz( str, knownRatios[i][1], sizeof( str ) );
-				break;
-			}
+		// map aspect ratio to our ratio names
+		if( aspectRatio >= 3.5 && aspectRatio <= 3.6 ) {        // 32:9 (~3.56)
+			ratios[r] = ratioBuf[4];  // "32:9"
+			resToRatio[r] = 4;
 		}
-
-		// add ratio to list if it is new
-		// establish res/ratio relationship
-		for( i = 0; ratioBuf[i][0]; i++ )
-		{
-			if( !Q_stricmp( str, ratioBuf[i] ) )
-				break;
+		else if( aspectRatio >= 2.3 && aspectRatio <= 2.5 ) {   // 21:9 (~2.39)
+			ratios[r] = ratioBuf[3];  // "21:9"
+			resToRatio[r] = 3;
 		}
-		if( !ratioBuf[i][0] )
-		{
-			Q_strncpyz( ratioBuf[i], str, sizeof(ratioBuf[i]) );
-			ratioToRes[i] = r;
+		else if( aspectRatio >= 1.75 && aspectRatio <= 1.8 ) {  // 16:9 (~1.78)
+			ratios[r] = ratioBuf[1];  // "16:9"
+			resToRatio[r] = 1;
 		}
-
-		ratios[r] = ratioBuf[i]; 
-		resToRatio[r] = i; 
+		else if( aspectRatio >= 1.58 && aspectRatio <= 1.62 ) { // 16:10 (~1.60)
+			ratios[r] = ratioBuf[2];  // "16:10"
+			resToRatio[r] = 2;
+		}
+		else if( aspectRatio >= 1.3 && aspectRatio <= 1.35 ) {  // 4:3 (~1.33)
+			ratios[r] = ratioBuf[0];  // "4:3"
+			resToRatio[r] = 0;
+		}
+		else if( aspectRatio >= 1.24 && aspectRatio <= 1.26 ) { // 5:4 (~1.25)
+			ratios[r] = ratioBuf[5];  // "5:4"
+			resToRatio[r] = 5;
+		}
+		else {
+			// fallback do 4:3
+			ratios[r] = ratioBuf[0];  // "4:3"
+			resToRatio[r] = 0;
+		}
 	}
 
 	ratios[r] = NULL;
+
+	// === ZBUDUJ MAPOWANIE RATIOS → PIERWSZA RESOLUTION DLA TEGO RATIO ===
+	// Wyczyść ratioToRes
+	for( i = 0; i < 6; i++ ) {
+		ratioToRes[i] = -1;
+	}
+	
+	// Znajdź pierwszą rozdzielczość dla każdego ratio
+	for( r = 0; resolutions[r] && r < MAX_RESOLUTIONS-1; r++ )
+	{
+		int ratioIndex = resToRatio[r];
+		if( ratioIndex >= 0 && ratioIndex < 6 && ratioToRes[ratioIndex] == -1 ) {
+			ratioToRes[ratioIndex] = r;
+		}
+	}
 }
 
 /*
@@ -819,8 +865,23 @@ static void GraphicsOptions_Event( void* ptr, int event ) {
 
 	switch( ((menucommon_s*)ptr)->id ) {
 	case ID_RATIO:
-		s_graphicsoptions.mode.curvalue =
-			ratioToRes[ s_graphicsoptions.ratio.curvalue ];
+		// Map static ratio index to resolution
+		{
+			const char* selectedRatio = staticRatios[ s_graphicsoptions.ratio.curvalue ];
+			int targetRes = -1;
+			
+			// Find first resolution that matches this ratio
+			for( int r = 0; resolutions[r] && r < MAX_RESOLUTIONS-1; r++ ) {
+				if( ratios[r] && !Q_stricmp( ratios[r], selectedRatio ) ) {
+					targetRes = r;
+					break;
+				}
+			}
+			
+			if( targetRes != -1 ) {
+				s_graphicsoptions.mode.curvalue = targetRes;
+			}
+		}
 		// fall through to apply mode constraints
 		
 	case ID_MODE:
@@ -1200,7 +1261,7 @@ void GraphicsOptions_MenuInit( void )
 	s_graphicsoptions.ratio.generic.flags    = QMF_PULSEIFFOCUS|QMF_SMALLFONT;
 	s_graphicsoptions.ratio.generic.x        = 400;
 	s_graphicsoptions.ratio.generic.y        = y;
-	s_graphicsoptions.ratio.itemnames        = ratios;
+	s_graphicsoptions.ratio.itemnames        = staticRatios;
 	s_graphicsoptions.ratio.generic.callback = GraphicsOptions_Event;
 	s_graphicsoptions.ratio.generic.id       = ID_RATIO;
 	y += BIGCHAR_HEIGHT+2;

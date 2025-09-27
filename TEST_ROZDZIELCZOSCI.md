@@ -47,10 +47,25 @@ Jeśli rozdzielczości nadal nie działają, będziemy musieli zmusić wszystkie
 - ✅ Dodana logika wymuszonego custom mode dla widescreen
 - ✅ Fixed resolutions fallback to builtin when not detected
 
-## Zmiany v3:
+## Zmiany v6:
 1. **Custom Mode Logic**: Panoramiczne rozdzielczości zawsze używają r_mode = -1
 2. **String Detection**: Sprawdzamy nazwę rozdzielczości zamiast indeksu
 3. **Fallback Fix**: Jeśli engine nie wykryje rozdzielczości, używamy builtin list
+4. **Static Ratios**: HARDCODED lista aspect ratios - nie zależy od wykrywania
+5. **Fixed Mapping**: Poprawione mapowanie static ratio → resolution
+
+## Test v4 - Aspect Ratios:
+Teraz w menu **Aspect Ratio** powinny być dostępne:
+- **4:3** (stare rozdzielczości)
+- **16:9** (1280x720, 1366x768, 1920x1080, 2560x1440)
+- **16:10** (1440x900, 1680x1050, 1920x1200) 
+- **21:9** (3440x1440)
+- **32:9** (5120x1440)
+
+## Jak testować v4:
+1. **Aspect Ratio menu**: Sprawdź czy można przewijać między różnymi ratio
+2. **Resolution menu**: Po wyborze ratio, sprawdź czy resolution się zmienia
+3. **Apply**: Po wyborze np. 21:9 + 3440x1440, sprawdź czy gra przełącza się na ultrawide
 
 ## Debug v3:
 Jeśli nadal nie działa, sprawdź w konsoli:
