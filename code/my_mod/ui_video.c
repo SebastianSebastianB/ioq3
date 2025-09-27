@@ -947,27 +947,23 @@ static void GraphicsOptions_Event( void* ptr, int event ) {
 			else if ( s_graphicsoptions.mode.curvalue > 6 )
 				s_graphicsoptions.mode.curvalue = 6;
 		}
-		// Update ratio based on new mode
+		// Update resolution based on selected mode from current ratio list
 		{
-			const char* currentRes = resolutions[ s_graphicsoptions.mode.curvalue ];
-			int w, h;
-			char *x;
-			float aspectRatio;
+			const char** currentRatioResolutions = GraphicsOptions_GetResolutionsForRatio( s_graphicsoptions.ratio.curvalue );
+			const char* selectedRes = currentRatioResolutions[ s_graphicsoptions.mode.curvalue ];
 			
-			if( currentRes && strchr( currentRes, 'x' ) ) {
-				x = strchr( currentRes, 'x' ) + 1;
+			if( selectedRes && strchr( selectedRes, 'x' ) ) {
+				char *x = strchr( selectedRes, 'x' ) + 1;
 				char temp[16];
-				Q_strncpyz( temp, currentRes, x-currentRes );
-				w = atoi( temp );
-				h = atoi( x );
-				aspectRatio = (float)w / (float)h;
+				Q_strncpyz( temp, selectedRes, x-selectedRes );
+				int w = atoi( temp );
+				int h = atoi( x );
+				float aspectRatio = (float)w / (float)h;
 				
-				if( aspectRatio >= 1.75 && aspectRatio <= 1.8 ) s_graphicsoptions.ratio.curvalue = 2;  // 16:9
-				else if( aspectRatio >= 1.58 && aspectRatio <= 1.62 ) s_graphicsoptions.ratio.curvalue = 3; // 16:10
-				else if( aspectRatio >= 1.24 && aspectRatio <= 1.26 ) s_graphicsoptions.ratio.curvalue = 1; // 5:4
-				else s_graphicsoptions.ratio.curvalue = 0; // 4:3
-			} else {
-				s_graphicsoptions.ratio.curvalue = 0;
+				trap_Cvar_SetValue("r_customAspectRatio", aspectRatio);
+				trap_Cvar_SetValue("r_customwidth", w);
+				trap_Cvar_SetValue("r_customheight", h);
+				trap_Cvar_Set("r_mode", "-1"); // Custom mode
 			}
 		}
 		break;
@@ -975,29 +971,28 @@ static void GraphicsOptions_Event( void* ptr, int event ) {
 	case ID_LIST:
 		ivo = &s_ivo_templates[s_graphicsoptions.list.curvalue];
 
-		s_graphicsoptions.mode.curvalue        = GraphicsOptions_FindDetectedResolution(ivo->mode);
-		// Update ratio based on template mode
-		{
-			const char* currentRes = resolutions[ s_graphicsoptions.mode.curvalue ];
-			int w, h;
-			char *x;
-			float aspectRatio;
+		// Ustaw domyślne aspect ratio na 4:3 dla templates
+		s_graphicsoptions.ratio.curvalue = 0; // 4:3
+		
+		// Ustaw pierwszą rozdzielczość z listy 4:3
+		const char** templateResolutions = GraphicsOptions_GetResolutionsForRatio( 0 ); // 4:3
+		s_graphicsoptions.mode.itemnames = templateResolutions;
+		s_graphicsoptions.mode.curvalue = 0; // pierwsza rozdzielczość
+		
+		// Ustaw odpowiednie cvars
+		const char* firstRes = templateResolutions[0];
+		if( firstRes && strchr( firstRes, 'x' ) ) {
+			char *x = strchr( firstRes, 'x' ) + 1;
+			char temp[16];
+			Q_strncpyz( temp, firstRes, x-firstRes );
+			int w = atoi( temp );
+			int h = atoi( x );
+			float aspectRatio = (float)w / (float)h;
 			
-			if( currentRes && strchr( currentRes, 'x' ) ) {
-				x = strchr( currentRes, 'x' ) + 1;
-				char temp[16];
-				Q_strncpyz( temp, currentRes, x-currentRes );
-				w = atoi( temp );
-				h = atoi( x );
-				aspectRatio = (float)w / (float)h;
-				
-				if( aspectRatio >= 1.75 && aspectRatio <= 1.8 ) s_graphicsoptions.ratio.curvalue = 2;  // 16:9
-				else if( aspectRatio >= 1.58 && aspectRatio <= 1.62 ) s_graphicsoptions.ratio.curvalue = 3; // 16:10
-				else if( aspectRatio >= 1.24 && aspectRatio <= 1.26 ) s_graphicsoptions.ratio.curvalue = 1; // 5:4
-				else s_graphicsoptions.ratio.curvalue = 0; // 4:3
-			} else {
-				s_graphicsoptions.ratio.curvalue = 0;
-			}
+			trap_Cvar_SetValue("r_customAspectRatio", aspectRatio);
+			trap_Cvar_SetValue("r_customwidth", w);
+			trap_Cvar_SetValue("r_customheight", h);
+			trap_Cvar_Set("r_mode", "-1"); // Custom mode
 		}
 		s_graphicsoptions.tq.curvalue          = ivo->tq;
 		s_graphicsoptions.lighting.curvalue    = ivo->lighting;
@@ -1102,18 +1097,12 @@ static void GraphicsOptions_SetMenuItems( void )
 	}
 	// === ZNAJDŹ RATIO DLA AKTUALNEJ ROZDZIELCZOŚCI ===
 	{
-		const char* currentRes = resolutions[ s_graphicsoptions.mode.curvalue ];
-		int w, h;
-		char *x;
-		float aspectRatio;
+		// Pobierz aktualną rozdzielczość z cvar
+		int w = trap_Cvar_VariableValue("r_customwidth");
+		int h = trap_Cvar_VariableValue("r_customheight");
 		
-		if( currentRes && strchr( currentRes, 'x' ) ) {
-			x = strchr( currentRes, 'x' ) + 1;
-			char temp[16];
-			Q_strncpyz( temp, currentRes, x-currentRes );
-			w = atoi( temp );
-			h = atoi( x );
-			aspectRatio = (float)w / (float)h;
+		if( w > 0 && h > 0 ) {
+			float aspectRatio = (float)w / (float)h;
 			
 			// Map to static ratio index (tylko 4 opcje)
 			if( aspectRatio >= 1.75 && aspectRatio <= 1.8 ) s_graphicsoptions.ratio.curvalue = 2; // "16:9"
@@ -1205,18 +1194,27 @@ static void GraphicsOptions_SetMenuItems( void )
 		const char** ratioResolutions = GraphicsOptions_GetResolutionsForRatio( s_graphicsoptions.ratio.curvalue );
 		s_graphicsoptions.mode.itemnames = ratioResolutions;
 		
-		// Sprawdź czy aktualna rozdzielczość pasuje do wybranego ratio, jeśli nie - ustaw pierwszą z listy
-		const char* currentRes = resolutions[ s_graphicsoptions.mode.curvalue ];
+		// Sprawdź czy aktualna rozdzielczość pasuje do wybranego ratio
+		// Pobierz aktualną rozdzielczość z cvar
+		char currentResolutionBuf[32];
+		int currentWidth = trap_Cvar_VariableValue("r_customwidth");
+		int currentHeight = trap_Cvar_VariableValue("r_customheight");
+		
+		if( currentWidth > 0 && currentHeight > 0 ) {
+			Com_sprintf( currentResolutionBuf, sizeof(currentResolutionBuf), "%dx%d", currentWidth, currentHeight );
+		} else {
+			// fallback do pierwszej rozdzielczości
+			Q_strncpyz( currentResolutionBuf, ratioResolutions[0], sizeof(currentResolutionBuf) );
+		}
+		
+		// Znajdź pasującą rozdzielczość w liście dla tego ratio
 		qboolean found = qfalse;
 		int i;
-		
-		if( currentRes ) {
-			for( i = 0; ratioResolutions[i]; i++ ) {
-				if( !Q_stricmp( currentRes, ratioResolutions[i] ) ) {
-					s_graphicsoptions.mode.curvalue = i;
-					found = qtrue;
-					break;
-				}
+		for( i = 0; ratioResolutions[i]; i++ ) {
+			if( !Q_stricmp( currentResolutionBuf, ratioResolutions[i] ) ) {
+				s_graphicsoptions.mode.curvalue = i;
+				found = qtrue;
+				break;
 			}
 		}
 		
