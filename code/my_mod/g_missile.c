@@ -27,6 +27,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // Forward declaration dla funkcji eksplozji klastrowej
 void Rocket_Cluster_Explode( gentity_t *ent, vec3_t surfaceNormal );
 
+// Forward declarations dla toksycznej chmury granatu
+void Poison_Cloud_Think( gentity_t *ent );
+void Grenade_Poison_Explode( gentity_t *ent );
+
 /*
 ================
 G_BounceMissile
@@ -571,10 +575,11 @@ gentity_t *fire_plasma (gentity_t *self, vec3_t start, vec3_t dir) {
 
 /*
 =================
-fire_grenade
+fire_grenade - MODDED z toksyczną chmurą
 =================
 */
 gentity_t *fire_grenade (gentity_t *self, vec3_t start, vec3_t dir) {
+	G_Printf("--- MODDED TOXIC GRENADE FIRED! ---\n");
 	gentity_t	*bolt;
 
 	VectorNormalize (dir);
@@ -582,7 +587,7 @@ gentity_t *fire_grenade (gentity_t *self, vec3_t start, vec3_t dir) {
 	bolt = G_Spawn();
 	bolt->classname = "grenade";
 	bolt->nextthink = level.time + 2500;
-	bolt->think = G_ExplodeMissile;
+	bolt->think = Grenade_Poison_Explode; // ZMIANA: Użyj nowej funkcji eksplozji z trucizną!
 	bolt->s.eType = ET_MISSILE;
 	bolt->r.svFlags = SVF_USE_CURRENT_ORIGIN;
 	bolt->s.weapon = WP_GRENADE_LAUNCHER;
@@ -649,6 +654,94 @@ gentity_t *fire_bfg (gentity_t *self, vec3_t start, vec3_t dir) {
 }
 
 //=============================================================================
+
+/*
+======================================================================
+POISON_CLOUD_THINK
+Funkcja obsługująca toksyczną chmurę granatu - zadaje damage co 500ms przez 10 sekund
+======================================================================
+*/
+void Poison_Cloud_Think( gentity_t *ent ) {
+    int i;
+    gentity_t *target;
+    vec3_t distance;
+    float radius = 150.0f; // Promień działania chmury trucizny
+    
+    G_Printf("--- Poison Cloud Tick! Remaining time: %d ms ---\n", ent->nextthink - level.time);
+    
+    // Sprawdź wszystkich graczy w promieniu chmury
+    for (i = 0; i < level.maxclients; i++) {
+        target = &g_entities[i];
+        
+        // Sprawdź czy gracz jest aktywny i żywy
+        if (!target->inuse || !target->client || target->health <= 0) {
+            continue;
+        }
+        
+        // Oblicz odległość między chmurą a graczem
+        VectorSubtract(target->r.currentOrigin, ent->r.currentOrigin, distance);
+        
+        // Jeśli gracz jest w promieniu chmury, zadaj mu damage
+        if (VectorLength(distance) <= radius) {
+            G_Printf("--- Player %s in poison cloud! Taking 25 damage ---\n", target->client->pers.netname);
+            G_Damage(target, ent, ent->parent, NULL, ent->r.currentOrigin, 25, 
+                     DAMAGE_NO_KNOCKBACK, MOD_GRENADE_SPLASH);
+        }
+    }
+    
+    // Sprawdź czy chmura ma się już zakończyć
+    if (ent->count <= 0) {
+        G_Printf("--- Poison Cloud Expired! ---\n");
+        G_FreeEntity(ent);
+        return;
+    }
+    
+    // Zmniejsz licznik pozostałych "ticków" (20 ticków * 500ms = 10 sekund)
+    ent->count--;
+    
+    // Zaplanuj następny tick za 500ms
+    ent->nextthink = level.time + 500;
+}
+
+/*
+======================================================================
+GRENADE_POISON_EXPLODE
+Eksplozja granatu z chmurą trucizny
+======================================================================
+*/
+void Grenade_Poison_Explode( gentity_t *ent ) {
+    gentity_t *poisonCloud;
+    vec3_t origin;
+    
+    G_Printf("--- Grenade Poison Explode! ---\n");
+    
+    // Używamy bieżącej pozycji granatu
+    VectorCopy(ent->r.currentOrigin, origin);
+    
+    // --- NAJPIERW standardowa eksplozja granatu ---
+    G_ExplodeMissile(ent);
+    
+    // --- POTEM tworzymy chmurę trucizny ---
+    poisonCloud = G_Spawn();
+    
+    poisonCloud->classname = "poison_cloud";
+    poisonCloud->s.eType = ET_GENERAL; // Może być niewidoczny lub z efektem
+    poisonCloud->think = Poison_Cloud_Think;
+    poisonCloud->nextthink = level.time + 500; // Pierwszy tick za 500ms
+    poisonCloud->count = 20; // 20 ticków * 500ms = 10 sekund
+    poisonCloud->parent = ent->parent; // Właściciel granatu
+    
+    // Ustawienie pozycji chmury
+    G_SetOrigin(poisonCloud, origin);
+    VectorCopy(origin, poisonCloud->r.currentOrigin);
+    
+    // Dodaj zielony efekt wizualny (jeśli dostępny)
+    G_AddEvent(poisonCloud, EV_GENERAL_SOUND, G_SoundIndex("sound/misc/h2ohit1.wav"));
+    
+    trap_LinkEntity(poisonCloud);
+    
+    G_Printf("--- Poison Cloud Created! Duration: 10 seconds ---\n");
+}
 
 /*
 ======================================================================
