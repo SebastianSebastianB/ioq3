@@ -25,7 +25,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define	MISSILE_PRESTEP_TIME	50
 
 // Forward declaration dla funkcji eksplozji klastrowej
-void Rocket_Cluster_Explode( gentity_t *ent );
+void Rocket_Cluster_Explode( gentity_t *ent, vec3_t surfaceNormal );
 
 /*
 ================
@@ -427,8 +427,8 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		// Ustaw pozycję rakiety na punkt uderzenia
 		SnapVectorTowards( trace->endpos, ent->s.pos.trBase );
 		G_SetOrigin( ent, trace->endpos );
-		// Wywołaj eksplozję klastrową
-		Rocket_Cluster_Explode( ent );
+		// Wywołaj eksplozję klastrową z wektorem normalnym powierzchni
+		Rocket_Cluster_Explode( ent, trace->plane.normal );
 		return; // Ważne: wyjście z funkcji, żeby nie wykonać standardowej eksplozji
 	}
 
@@ -653,14 +653,15 @@ gentity_t *fire_bfg (gentity_t *self, vec3_t start, vec3_t dir) {
 /*
 ======================================================================
 ROCKET_CLUSTER_EXPLODE
-Nasza nowa funkcja, która tworzy eksplozję kasetową. (Wersja POPRAWIONA)
+Nasza nowa funkcja, która tworzy eksplozję kasetową z realistycznym odbiciem.
 ======================================================================
 */
-void Rocket_Cluster_Explode( gentity_t *ent ) {
-	G_Printf("--- Rocket_Cluster_Explode! ---\n");
+void Rocket_Cluster_Explode( gentity_t *ent, vec3_t surfaceNormal ) {
+	G_Printf("--- Rocket_Cluster_Explode! Surface Normal: %.2f %.2f %.2f ---\n", 
+		surfaceNormal[0], surfaceNormal[1], surfaceNormal[2]);
     int i;
     gentity_t *bomblet;
-    vec3_t dir;
+    vec3_t dir, reflectDir;
     vec3_t origin;
 
     // Używamy bieżącej pozycji rakiety (punkt uderzenia)
@@ -668,11 +669,19 @@ void Rocket_Cluster_Explode( gentity_t *ent ) {
 
     // --- NAJPIERW tworzymy 6 mniejszych "bombletów" ---
     for (i = 0; i < 6; i++) {
-        // Losowy wektor kierunku
-        dir[0] = crandom() * 0.5f;
-        dir[1] = crandom() * 0.5f;
-        dir[2] = 1.0f; // Lekkie podbicie w górę
-        VectorNormalize(dir);
+        // Bazowy kierunek odbicia: wektor normalny powierzchni z małym losowym rozrzutem
+        VectorCopy( surfaceNormal, reflectDir );
+        
+        // Dodajemy losowy rozrzut do kierunku odbicia (±30 stopni w każdej osi)
+        reflectDir[0] += crandom() * 0.5f;
+        reflectDir[1] += crandom() * 0.5f;
+        reflectDir[2] += crandom() * 0.3f; // Mniejszy rozrzut w osi Z
+        
+        // Upewniamy się, że bomblet leci w kierunku od powierzchni (nie do niej)
+        // Jeśli normalny wektor jest skierowany w dół (sufit), to bomblet leci w dół
+        // Jeśli normalny wektor jest skierowany w górę (podłoga), to bomblet leci w górę
+        VectorNormalize(reflectDir);
+        VectorCopy(reflectDir, dir);
         
         // Stworzenie nowego bytu (entity) dla bombletu
         bomblet = G_Spawn();
