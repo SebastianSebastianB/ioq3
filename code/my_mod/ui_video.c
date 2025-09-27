@@ -376,6 +376,45 @@ static const char* staticRatios[] = {
 	NULL
 };
 
+// === OSOBNE LISTY ROZDZIELCZOŚCI DLA KAŻDEGO ASPECT RATIO ===
+static const char* resolutions_4_3[] = {
+	"320x240",
+	"400x300", 
+	"512x384",
+	"640x480",
+	"800x600",
+	"960x720",
+	"1024x768",
+	"1152x864",
+	"1600x1200",
+	"2048x1536",
+	NULL
+};
+
+static const char* resolutions_5_4[] = {
+	"1280x1024",
+	NULL
+};
+
+static const char* resolutions_16_9[] = {
+	"856x480",
+	"1280x720",
+	"1366x768", 
+	"1600x900",
+	"1920x1080",
+	"2560x1440",
+	"3840x2160",
+	NULL
+};
+
+static const char* resolutions_16_10[] = {
+	"1440x900",
+	"1680x1050",
+	"1920x1200",
+	"2560x1600",
+	NULL
+};
+
 static const char* ratios[ MAX_RESOLUTIONS ];
 static char ratioBuf[ MAX_RESOLUTIONS ][ 8 ];
 static int ratioToRes[ MAX_RESOLUTIONS ];
@@ -387,6 +426,17 @@ static char currentResolution[ 20 ];
 
 static const char** resolutions = builtinResolutions;
 static qboolean resolutionsDetected = qfalse;
+
+// === FUNKCJA ZWRACAJĄCA ROZDZIELCZOŚCI DLA AKTUALNEGO ASPECT RATIO ===
+static const char** GraphicsOptions_GetResolutionsForRatio( int ratioIndex ) {
+	switch( ratioIndex ) {
+		case 0: return resolutions_4_3;   // 4:3
+		case 1: return resolutions_5_4;   // 5:4
+		case 2: return resolutions_16_9;  // 16:9
+		case 3: return resolutions_16_10; // 16:10
+		default: return resolutions_4_3;  // fallback
+	}
+}
 
 /*
 =================
@@ -864,33 +914,28 @@ static void GraphicsOptions_Event( void* ptr, int event ) {
 
 	switch( ((menucommon_s*)ptr)->id ) {
 	case ID_RATIO:
-		// Ustawienie odpowiedniego aspect ratio w cvar i przykładowej rozdzielczości
-		// curvalue jest już automatycznie zmienione przez spincontrol
-		switch(s_graphicsoptions.ratio.curvalue) {
-			case 0: // 4:3
-				trap_Cvar_Set("r_customAspectRatio", "1.333333");
-				trap_Cvar_Set("r_customwidth", "1024");
-				trap_Cvar_Set("r_customheight", "768");
-				break;
-			case 1: // 5:4
-				trap_Cvar_Set("r_customAspectRatio", "1.25");
-				trap_Cvar_Set("r_customwidth", "1280");
-				trap_Cvar_Set("r_customheight", "1024");
-				break;
-			case 2: // 16:9
-				trap_Cvar_Set("r_customAspectRatio", "1.777778");
-				trap_Cvar_Set("r_customwidth", "1920");
-				trap_Cvar_Set("r_customheight", "1080");
-				break;
-			case 3: // 16:10
-				trap_Cvar_Set("r_customAspectRatio", "1.6");
-				trap_Cvar_Set("r_customwidth", "1920");
-				trap_Cvar_Set("r_customheight", "1200");
-				break;
+		// Zmiana aspect ratio - aktualizacja listy dostępnych rozdzielczości
+		{
+			const char** newResolutions = GraphicsOptions_GetResolutionsForRatio( s_graphicsoptions.ratio.curvalue );
+			s_graphicsoptions.mode.itemnames = newResolutions;
+			s_graphicsoptions.mode.curvalue = 0; // Reset do pierwszej rozdzielczości w nowej liście
+			
+			// Ustawienie odpowiedniego aspect ratio w cvar i pierwszej rozdzielczości z listy
+			const char* firstRes = newResolutions[0];
+			if( firstRes && strchr( firstRes, 'x' ) ) {
+				char *x = strchr( firstRes, 'x' ) + 1;
+				char temp[16];
+				Q_strncpyz( temp, firstRes, x-firstRes );
+				int w = atoi( temp );
+				int h = atoi( x );
+				float aspectRatio = (float)w / (float)h;
+				
+				trap_Cvar_SetValue("r_customAspectRatio", aspectRatio);
+				trap_Cvar_SetValue("r_customwidth", w);
+				trap_Cvar_SetValue("r_customheight", h);
+				trap_Cvar_Set("r_mode", "-1"); // Custom mode
+			}
 		}
-		// Ustaw tryb na custom (-1)
-		s_graphicsoptions.mode.curvalue = 0; // Custom mode
-		trap_Cvar_Set("r_mode", "-1");
 		break;
 		
 	case ID_MODE:
@@ -1152,6 +1197,33 @@ static void GraphicsOptions_SetMenuItems( void )
 	if ( s_graphicsoptions.driver.curvalue == 1 )
 	{
 		s_graphicsoptions.colordepth.curvalue = 1;
+	}
+	
+	// === SYNCHRONIZACJA LIST ROZDZIELCZOŚCI Z ASPECT RATIO ===
+	// Po ustawieniu aspect ratio, zaktualizuj dostępne rozdzielczości
+	{
+		const char** ratioResolutions = GraphicsOptions_GetResolutionsForRatio( s_graphicsoptions.ratio.curvalue );
+		s_graphicsoptions.mode.itemnames = ratioResolutions;
+		
+		// Sprawdź czy aktualna rozdzielczość pasuje do wybranego ratio, jeśli nie - ustaw pierwszą z listy
+		const char* currentRes = resolutions[ s_graphicsoptions.mode.curvalue ];
+		qboolean found = qfalse;
+		int i;
+		
+		if( currentRes ) {
+			for( i = 0; ratioResolutions[i]; i++ ) {
+				if( !Q_stricmp( currentRes, ratioResolutions[i] ) ) {
+					s_graphicsoptions.mode.curvalue = i;
+					found = qtrue;
+					break;
+				}
+			}
+		}
+		
+		// Jeśli aktualna rozdzielczość nie jest w nowej liście, ustaw pierwszą
+		if( !found ) {
+			s_graphicsoptions.mode.curvalue = 0;
+		}
 	}
 }
 
