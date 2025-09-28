@@ -1960,6 +1960,9 @@ void CG_MissileHitWall_Poison( int weapon, int clientNum, vec3_t origin, vec3_t 
 	vec3_t			sprOrg;
 	vec3_t			sprVel;
 
+	// DEBUG: Sprawdźmy jaką broń otrzymujemy
+	CG_Printf("POISON DEBUG: weapon = %d (WP_GRENADE_LAUNCHER = %d)\n", weapon, WP_GRENADE_LAUNCHER);
+
 	mod = 0;
 	shader = 0;
 	light = 0;

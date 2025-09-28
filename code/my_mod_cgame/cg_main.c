@@ -1846,6 +1846,18 @@ Will perform callbacks to make the loading info screen update.
 void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 	const char	*s;
 
+	CG_Printf("*** USING MY_MOD_CGAME! ***\n");
+
+	// Write a marker file so we can verify cgame from my_mod is loaded
+	{
+		fileHandle_t f;
+		const char *msg = "my_mod_cgame_loaded";
+		if ( trap_FS_FOpenFile( "mymod_cgame_loaded.txt", &f, FS_WRITE ) >= 0 ) {
+			trap_FS_Write( msg, (int)strlen(msg), f );
+			trap_FS_FCloseFile( f );
+		}
+	}
+
 	// clear everything
 	memset( &cgs, 0, sizeof( cgs ) );
 	memset( &cg, 0, sizeof( cg ) );

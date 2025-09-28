@@ -530,6 +530,55 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 	es = &cent->currentState;
 	event = es->event & ~EV_EVENT_BITS;
 
+	// DEBUG: PODSTAWOWY - czy w ogóle otrzymujemy eventy? (tylko gdy cg_debugEvents)
+	if ( cg_debugEvents.integer ) {
+		CG_Printf("CG_EntityEvent: ent=%d raw=%d masked=%d\n", es->number, es->event, event);
+	}
+
+	// DEBUG: Check event masking
+	if (es->event == 51 || event == 51) {
+		CG_Printf("EVENT MASKING DEBUG: raw es->event=%d, masked event=%d, EV_EVENT_BITS=0x%x\n", 
+				es->event, event, EV_EVENT_BITS);
+	}
+
+	// Jeśli to MISSILE_MISS i nasz znacznik broni, loguj ścieżkę
+	if ( event == EV_MISSILE_MISS && cg_debugEvents.integer ) {
+		CG_Printf("EV_MISSILE_MISS: weapon=%d pos=(%.1f,%.1f,%.1f)\n", es->weapon, position[0], position[1], position[2]);
+	}
+
+	// DEBUG: Wartości enum po stronie clienta 
+	static qboolean printed_client_enums = qfalse;
+	if (!printed_client_enums) {
+		CG_Printf("CLIENT ENUM VALUES: EV_MISSILE_MISS=%d, EV_MISSILE_MISS_METAL=%d, EV_MISSILE_MISS_POISON=%d\n", 
+				EV_MISSILE_MISS, EV_MISSILE_MISS_METAL, EV_MISSILE_MISS_POISON);
+		printed_client_enums = qtrue;
+	}
+	
+	// DEBUG: Log event 51 specifically 
+	if (event == 51) {
+		CG_Printf("CLIENT: Received event 51 (server sends EV_MISSILE_MISS=51), client EV_MISSILE_MISS=%d\n", EV_MISSILE_MISS);
+	}
+	
+	// DEBUG: Log WSZYSTKIE eventy powyżej 45 żeby sprawdzić event range
+	if (event > 45) {
+		CG_Printf("CLIENT DEBUG: Received high event %d (es->number=%d)\n", event, es->number);
+	}
+	
+	// DEBUG: Sprawdzenie specific events
+	if (event == EV_MISSILE_MISS) {
+		CG_Printf("STANDARD GRENADE: EV_MISSILE_MISS event=%d\n", event);
+	}
+	
+	// EXPLICIT test dla konkretnej wartości którą spodziewamy się od servera
+	if (event == EV_MISSILE_MISS_POISON) {
+		CG_Printf("BINGO! EV_MISSILE_MISS_POISON event received! event=%d\n", event);
+	}
+	
+	// EXPLICIT test dla event 83
+	if (event == 83) {
+		CG_Printf("EVENT 83 DETECTED! Client EV_MISSILE_MISS_POISON=%d, received event=%d\n", EV_MISSILE_MISS_POISON, event);
+	}
+
 	if ( cg_debugEvents.integer ) {
 		CG_Printf( "ent:%3i  event:%3i ", es->number, event );
 	}
@@ -544,6 +593,11 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		clientNum = 0;
 	}
 	ci = &cgs.clientinfo[ clientNum ];
+
+	// CRITICAL DEBUG: Log event przed switch
+	if (event == 83) {
+		CG_Printf("ENTERING SWITCH: event=83, EV_MISSILE_MISS_POISON=%d\n", EV_MISSILE_MISS_POISON);
+	}
 
 	switch ( event ) {
 	//
@@ -971,7 +1025,19 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 	case EV_MISSILE_MISS:
 		DEBUGNAME("EV_MISSILE_MISS");
 		ByteToDir( es->eventParm, dir );
-		CG_MissileHitWall( es->weapon, 0, position, dir, IMPACTSOUND_DEFAULT );
+		// DEBUG: Always log weapon value for EV_MISSILE_MISS
+		CG_Printf("CLIENT DEBUG: EV_MISSILE_MISS received, weapon=%d, WP_GRENADE_LAUNCHER=%d, threshold=%d\n", 
+				es->weapon, WP_GRENADE_LAUNCHER, WP_GRENADE_LAUNCHER + 100);
+		// Check for poison grenade special marker
+		if (es->weapon >= WP_GRENADE_LAUNCHER + 100) {
+			CG_Printf("SUCCESS! Poison grenade detected via EV_MISSILE_MISS workaround! weapon=%d\n", es->weapon);
+			// Reset weapon to normal value for visual effects
+			int normalWeapon = es->weapon - 100;
+			CG_MissileHitWall_Poison( normalWeapon, 0, position, dir, IMPACTSOUND_DEFAULT );
+		} else {
+			CG_Printf("Standard grenade: weapon=%d (not poison)\n", es->weapon);
+			CG_MissileHitWall( es->weapon, 0, position, dir, IMPACTSOUND_DEFAULT );
+		}
 		break;
 
 	case EV_MISSILE_MISS_METAL:
@@ -981,9 +1047,12 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		break;
 
 	case EV_MISSILE_MISS_POISON:
+		CG_Printf("SUCCESS! EV_MISSILE_MISS_POISON case executed! event=%d, EV_MISSILE_MISS_POISON=%d\n", event, EV_MISSILE_MISS_POISON);
 		DEBUGNAME("EV_MISSILE_MISS_POISON");
+		CG_Printf("POISON EVENT DEBUG: es->weapon = %d, calling CG_MissileHitWall_Poison\n", es->weapon);
 		ByteToDir( es->eventParm, dir );
 		CG_MissileHitWall_Poison( es->weapon, 0, position, dir, IMPACTSOUND_DEFAULT );
+		CG_Printf("CG_MissileHitWall_Poison completed!\n");
 		break;
 
 	case EV_RAILTRAIL:
@@ -1241,7 +1310,15 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 
 	default:
 		DEBUGNAME("UNKNOWN");
-		CG_Error( "Unknown event: %i", event );
+		CG_Printf("DEBUG: Unknown event %d, EV_MISSILE_MISS_POISON=%d\n", event, EV_MISSILE_MISS_POISON);
+		if (event == 83) {
+			CG_Printf("CRITICAL: Event 83 fell through to default case! EV_MISSILE_MISS_POISON should be 83!\n");
+			CG_Printf("FALLBACK: Handling event 83 as poison grenade explosion in default case\n");
+			ByteToDir( es->eventParm, dir );
+			CG_MissileHitWall_Poison( es->weapon, 0, position, dir, IMPACTSOUND_DEFAULT );
+		} else {
+			CG_Printf("Unknown event: %i (not critical, continuing)\n", event);
+		}
 		break;
 	}
 

@@ -28,6 +28,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "cg_local.h"
 
+// DEBUG: Sprawdźmy czy ten plik jest kompilowany
+#define STR(x) #x
+#define XSTR(x) STR(x)
+#pragma message("COMPILING MY_MOD_CGAME CG_SYSCALLS.C")
+#pragma message("EV_MISSILE_MISS = " XSTR(EV_MISSILE_MISS))
+#pragma message("EV_MISSILE_MISS_METAL = " XSTR(EV_MISSILE_MISS_METAL))
+#pragma message("EV_MISSILE_MISS_POISON = " XSTR(EV_MISSILE_MISS_POISON))
+
 static intptr_t (QDECL *syscall)( intptr_t arg, ... ) = (intptr_t (QDECL *)( intptr_t, ...))-1;
 
 

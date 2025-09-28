@@ -75,6 +75,8 @@ void G_ExplodeMissile( gentity_t *ent ) {
 	vec3_t		dir;
 	vec3_t		origin;
 
+	G_Printf("SERVER DEBUG: G_ExplodeMissile called! entity=%d, weapon=%d\n", ent->s.number, ent->s.weapon);
+
 	BG_EvaluateTrajectory( &ent->s.pos, level.time, origin );
 	SnapVector( origin );
 	G_SetOrigin( ent, origin );
@@ -120,8 +122,16 @@ void G_ExplodeMissile_Poison( gentity_t *ent ) {
 	dir[2] = 1;
 
 	ent->s.eType = ET_GENERAL;
-	G_AddEvent( ent, EV_MISSILE_MISS_POISON, DirToByte( dir ) );
+	G_Printf("SERVER DEBUG: Using EV_MISSILE_MISS for poison grenade (temporary workaround)\n");
+	G_Printf("SERVER DEBUG: EV_MISSILE_MISS=%d, original weapon=%d\n", EV_MISSILE_MISS, ent->s.weapon);
+	// TEMPORARY: Use standard EV_MISSILE_MISS but mark weapon as special value for poison
+	ent->s.weapon = WP_GRENADE_LAUNCHER + 100; // Special marker for poison grenade
+	G_Printf("SERVER DEBUG: After marker: weapon=%d, entity number=%d, eType=%d\n", 
+			ent->s.weapon, ent->s.number, ent->s.eType);
+	G_AddEvent( ent, EV_MISSILE_MISS, DirToByte( dir ) );
+	G_Printf("SERVER DEBUG: Event added, freeAfterEvent will be set to qtrue\n");
 
+	// Utrzymuj zgodność z oryginałem: event-only entity zwalniane po evencie
 	ent->freeAfterEvent = qtrue;
 
 	// splash damage
@@ -623,7 +633,7 @@ gentity_t *fire_grenade (gentity_t *self, vec3_t start, vec3_t dir) {
 	bolt = G_Spawn();
 	bolt->classname = "grenade";
 	bolt->nextthink = level.time + 2500;
-	bolt->think = Grenade_Poison_Explode; // ZMIANA: Użyj nowej funkcji eksplozji z trucizną!
+	bolt->think = G_ExplodeMissile_Poison; // Duplikat wybuchu: wersja poison
 	bolt->s.eType = ET_MISSILE;
 	bolt->r.svFlags = SVF_USE_CURRENT_ORIGIN;
 	bolt->s.weapon = WP_GRENADE_LAUNCHER;

@@ -192,6 +192,17 @@ void CheckExitRules( void );
 
 
 /*
+
+	// Write a marker file so we can verify qagame from my_mod is loaded
+	{
+		fileHandle_t f;
+		const char *msg = "my_mod_qagame_loaded";
+		trap_FS_FOpenFile( "mymod_qagame_loaded.txt", &f, FS_WRITE );
+		if ( f ) {
+			trap_FS_Write( msg, (int)strlen(msg), f );
+			trap_FS_FCloseFile( f );
+		}
+	}
 ================
 vmMain
 
@@ -409,6 +420,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	int					i;
 
 	G_Printf ("------- Game Initialization -------\n");
+	G_Printf ("*** USING MY_MOD_GAME QAGAME! ***\n");
 	G_Printf ("gamename: %s\n", GAMEVERSION);
 	G_Printf ("gamedate: %s\n", PRODUCT_DATE);
 

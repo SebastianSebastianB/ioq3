@@ -411,7 +411,6 @@ typedef enum {
 	EV_MISSILE_HIT,
 	EV_MISSILE_MISS,
 	EV_MISSILE_MISS_METAL,
-	EV_MISSILE_MISS_POISON,
 	EV_RAILTRAIL,
 	EV_SHOTGUN,
 	EV_BULLET,				// otherEntity is the shooter
@@ -448,7 +447,9 @@ typedef enum {
 	EV_TAUNT_FOLLOWME,
 	EV_TAUNT_GETFLAG,
 	EV_TAUNT_GUARDBASE,
-	EV_TAUNT_PATROL
+	EV_TAUNT_PATROL,
+	
+	EV_MISSILE_MISS_POISON		// Custom poison grenade explosion event - added at end to avoid enum value conflicts
 
 } entity_event_t;
 
