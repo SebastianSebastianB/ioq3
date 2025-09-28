@@ -419,47 +419,58 @@ GraphicsOptions_GetAspectRatios
 static void GraphicsOptions_GetAspectRatios( void )
 {
 	int i, r;
+	int numRatios = 0;
 
-	// build ratio list from resolutions
-	for( r = 0; resolutions[r]; r++ )
-	{
+	// clear previous data to avoid stale entries on subsequent openings
+	for ( i = 0; i < MAX_RESOLUTIONS; i++ ) {
+		ratioBuf[i][0] = '\0';
+		ratios[i] = NULL;
+		ratioToRes[i] = -1;
+		resToRatio[i] = -1;
+	}
+
+	// build unique ratio list from resolutions and establish mappings
+	for ( r = 0; resolutions[r]; r++ ) {
 		int w, h;
 		char *x;
 		char str[ sizeof(ratioBuf[0]) ];
 
 		// calculate resolution's aspect ratio
 		x = strchr( resolutions[r], 'x' ) + 1;
-		Q_strncpyz( str, resolutions[r], x-resolutions[r] );
+		Q_strncpyz( str, resolutions[r], x - resolutions[r] );
 		w = atoi( str );
 		h = atoi( x );
 		Com_sprintf( str, sizeof(str), "%.2f:1", (float)w / (float)h );
 
 		// rename common ratios ("1.33:1" -> "4:3")
-		for( i = 0; knownRatios[i][0]; i++ ) {
-			if( !Q_stricmp( str, knownRatios[i][0] ) ) {
+		for ( i = 0; knownRatios[i][0]; i++ ) {
+			if ( !Q_stricmp( str, knownRatios[i][0] ) ) {
 				Q_strncpyz( str, knownRatios[i][1], sizeof( str ) );
 				break;
 			}
 		}
 
-		// add ratio to list if it is new
-		// establish res/ratio relationship
-		for( i = 0; ratioBuf[i][0]; i++ )
-		{
-			if( !Q_stricmp( str, ratioBuf[i] ) )
+		// find or create unique ratio index
+		for ( i = 0; i < numRatios; i++ ) {
+			if ( !Q_stricmp( str, ratioBuf[i] ) ) {
 				break;
+			}
 		}
-		if( !ratioBuf[i][0] )
-		{
-			Q_strncpyz( ratioBuf[i], str, sizeof(ratioBuf[i]) );
-			ratioToRes[i] = r;
+		if ( i == numRatios && numRatios < MAX_RESOLUTIONS ) {
+			Q_strncpyz( ratioBuf[numRatios], str, sizeof( ratioBuf[numRatios] ) );
+			ratioToRes[numRatios] = r; // first resolution index for this ratio
+			numRatios++;
 		}
 
-		ratios[r] = ratioBuf[r]; 
-		resToRatio[r] = i; 
+		// map this resolution to the found/created ratio index
+		resToRatio[r] = i;
 	}
 
-	ratios[r] = NULL;
+	// publish the unique ratio names list
+	for ( i = 0; i < numRatios; i++ ) {
+		ratios[i] = ratioBuf[i];
+	}
+	ratios[numRatios] = NULL;
 }
 
 /*

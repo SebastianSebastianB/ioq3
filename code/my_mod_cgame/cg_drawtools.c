@@ -36,6 +36,13 @@ void CG_AdjustFrom640( float *x, float *y, float *w, float *h ) {
 	float scaleX = cgs.screenXScale; // vidWidth / 640
 	float scaleY = cgs.screenYScale; // vidHeight / 480
 	float scale = (scaleX < scaleY) ? scaleX : scaleY;
+	if (cg_hudIntegerScale.integer) {
+		// Wymuś skalę całkowitą (x1, x2, x3, ...), aby uniknąć fractional scaling
+		float ideal = scale;
+		int iScale = (int)ideal;
+		if (iScale < 1) iScale = 1;
+		scale = (float)iScale;
+	}
 	float offsetX = 0.5f * ( cgs.glconfig.vidWidth  - 640.0f * scale );
 	float offsetY = 0.5f * ( cgs.glconfig.vidHeight - 480.0f * scale );
 

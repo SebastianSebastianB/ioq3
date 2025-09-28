@@ -1031,9 +1031,28 @@ static float CG_DrawScores( float y ) {
 
 	y1 = y;
 
+	// Kotwiczenie do prawej krawędzi ekranu (nie tylko do prawej krawędzi pola 4:3).
+	// Wyliczamy dodatkowy „pad” w wirtualnych jednostkach 640x480, który odpowiada
+	// bocznym pasom (letterbox) po prawej stronie.
+	{
+		float scaleX = cgs.screenXScale; // vidWidth / 640
+		float scaleY = cgs.screenYScale; // vidHeight / 480
+		float scale = (scaleX < scaleY) ? scaleX : scaleY;
+		if ( cg_hudIntegerScale.integer ) {
+			int iScale = (int)scale;
+			if ( iScale < 1 ) iScale = 1;
+			scale = (float)iScale;
+		}
+		// offsetX to połowa szerokości pasów po bokach w pikselach; wirtualny pad to offsetX/scale
+		float offsetX = 0.5f * ( cgs.glconfig.vidWidth - 640.0f * scale );
+		float padVirtualRight = offsetX / scale;
+		// Zapamiętaj w x tymczasowo startową bazę, później nadpisz w gałęziach rysowania
+		x = 640 + (int)(padVirtualRight + 0.5f);
+	}
+
 	// draw from the right side to left
 	if ( cgs.gametype >= GT_TEAM ) {
-		x = 640;
+		// Start od prawej krawędzi ekranu (pozycja wyliczona wyżej)
 		color[0] = 0.0f;
 		color[1] = 0.0f;
 		color[2] = 1.0f;
@@ -1098,7 +1117,7 @@ static float CG_DrawScores( float y ) {
 	} else {
 		qboolean	spectator;
 
-		x = 640;
+		// Start od prawej krawędzi ekranu (pozycja wyliczona wyżej)
 		score = cg.snap->ps.persistant[PERS_SCORE];
 		spectator = ( cg.snap->ps.persistant[PERS_TEAM] == TEAM_SPECTATOR );
 
