@@ -1901,8 +1901,11 @@ static void CG_DrawCrosshair(void)
 		h *= ( 1 + f );
 	}
 
-	x = cg_crosshairX.integer;
-	y = cg_crosshairY.integer;
+	// Wycentruj w przestrzeni 640x480 (4:3), a następnie przeskaluj
+	// Uwaga: w,h są wirtualne (640x480), więc najpierw ustaw rozmiar,
+	// potem policz środek i dodaj ewentualne przesunięcia z cvarów.
+	x = 320.0f - (w * 0.5f) + cg_crosshairX.integer;
+	y = 240.0f - (h * 0.5f) + cg_crosshairY.integer;
 	CG_AdjustFrom640( &x, &y, &w, &h );
 
 	ca = cg_drawCrosshair.integer;
@@ -1911,9 +1914,8 @@ static void CG_DrawCrosshair(void)
 	}
 	hShader = cgs.media.crosshairShader[ ca % NUM_CROSSHAIRS ];
 
-	trap_R_DrawStretchPic( x + cg.refdef.x + 0.5 * (cg.refdef.width - w), 
-		y + cg.refdef.y + 0.5 * (cg.refdef.height - h), 
-		w, h, 0, 0, 1, 1, hShader );
+	// Po CG_AdjustFrom640 obszar HUD jest już wycentrowany; nie centrować drugi raz względem refdef
+	trap_R_DrawStretchPic( x, y, w, h, 0, 0, 1, 1, hShader );
 
 	trap_R_SetColor( NULL );
 }

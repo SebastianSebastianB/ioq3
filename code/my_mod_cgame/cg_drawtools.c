@@ -31,17 +31,24 @@ Adjusted for resolution and screen aspect ratio
 ================
 */
 void CG_AdjustFrom640( float *x, float *y, float *w, float *h ) {
-#if 0
-	// adjust for wide screens
-	if ( cgs.glconfig.vidWidth * 480 > cgs.glconfig.vidHeight * 640 ) {
-		*x += 0.5 * ( cgs.glconfig.vidWidth - ( cgs.glconfig.vidHeight * 640 / 480 ) );
-	}
-#endif
-	// scale for screen sizes
-	*x *= cgs.screenXScale;
-	*y *= cgs.screenYScale;
-	*w *= cgs.screenXScale;
-	*h *= cgs.screenYScale;
+	// Izotropowe skalowanie HUD (4:3) + centrowanie i zaokrąglanie do pikseli,
+	// aby uniknąć rozciągania i rozmycia na szerokich ekranach.
+	float scaleX = cgs.screenXScale; // vidWidth / 640
+	float scaleY = cgs.screenYScale; // vidHeight / 480
+	float scale = (scaleX < scaleY) ? scaleX : scaleY;
+	float offsetX = 0.5f * ( cgs.glconfig.vidWidth  - 640.0f * scale );
+	float offsetY = 0.5f * ( cgs.glconfig.vidHeight - 480.0f * scale );
+
+	float nx = (*x) * scale + offsetX;
+	float ny = (*y) * scale + offsetY;
+	float nw = (*w) * scale;
+	float nh = (*h) * scale;
+
+	// Zaokrąglanie pozycji i rozmiarów do pikseli, aby zminimalizować rozmycia
+	*x = (float)(int)(nx + 0.5f);
+	*y = (float)(int)(ny + 0.5f);
+	*w = (float)(int)(nw + 0.5f);
+	*h = (float)(int)(nh + 0.5f);
 }
 
 /*
@@ -69,14 +76,26 @@ Coords are virtual 640x480
 */
 void CG_DrawSides(float x, float y, float w, float h, float size) {
 	CG_AdjustFrom640( &x, &y, &w, &h );
-	size *= cgs.screenXScale;
+	// Skaluj grubość ramki tą samą izotropową skalą
+	{
+		float scaleX = cgs.screenXScale;
+		float scaleY = cgs.screenYScale;
+		float scale = (scaleX < scaleY) ? scaleX : scaleY;
+		size = (float)(int)(size * scale + 0.5f);
+	}
 	trap_R_DrawStretchPic( x, y, size, h, 0, 0, 0, 0, cgs.media.whiteShader );
 	trap_R_DrawStretchPic( x + w - size, y, size, h, 0, 0, 0, 0, cgs.media.whiteShader );
 }
 
 void CG_DrawTopBottom(float x, float y, float w, float h, float size) {
 	CG_AdjustFrom640( &x, &y, &w, &h );
-	size *= cgs.screenYScale;
+	// jw.
+	{
+		float scaleX = cgs.screenXScale;
+		float scaleY = cgs.screenYScale;
+		float scale = (scaleX < scaleY) ? scaleX : scaleY;
+		size = (float)(int)(size * scale + 0.5f);
+	}
 	trap_R_DrawStretchPic( x, y, w, size, 0, 0, 0, 0, cgs.media.whiteShader );
 	trap_R_DrawStretchPic( x, y + h - size, w, size, 0, 0, 0, 0, cgs.media.whiteShader );
 }
