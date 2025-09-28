@@ -99,6 +99,42 @@ void G_ExplodeMissile( gentity_t *ent ) {
 	trap_LinkEntity( ent );
 }
 
+/*
+================
+G_ExplodeMissile_Poison
+
+Identyczna kopia G_ExplodeMissile ale z nową nazwą.
+Na początku działa identycznie jak normalna eksplozja.
+================
+*/
+void G_ExplodeMissile_Poison( gentity_t *ent ) {
+	vec3_t		dir;
+	vec3_t		origin;
+
+	BG_EvaluateTrajectory( &ent->s.pos, level.time, origin );
+	SnapVector( origin );
+	G_SetOrigin( ent, origin );
+
+	// we don't have a valid direction, so just point straight up
+	dir[0] = dir[1] = 0;
+	dir[2] = 1;
+
+	ent->s.eType = ET_GENERAL;
+	G_AddEvent( ent, EV_MISSILE_MISS_POISON, DirToByte( dir ) );
+
+	ent->freeAfterEvent = qtrue;
+
+	// splash damage
+	if ( ent->splashDamage ) {
+		if( G_RadiusDamage( ent->r.currentOrigin, ent->parent, ent->splashDamage, ent->splashRadius, ent
+			, ent->splashMethodOfDeath ) ) {
+			g_entities[ent->r.ownerNum].client->accuracy_hits++;
+		}
+	}
+
+	trap_LinkEntity( ent );
+}
+
 
 #ifdef MISSIONPACK
 /*
@@ -718,8 +754,8 @@ void Grenade_Poison_Explode( gentity_t *ent ) {
     // Używamy bieżącej pozycji granatu
     VectorCopy(ent->r.currentOrigin, origin);
     
-    // --- NAJPIERW standardowa eksplozja granatu ---
-    G_ExplodeMissile(ent);
+    // --- NAJPIERW nasza kopia eksplozji granatu ---
+    G_ExplodeMissile_Poison(ent);
     
     // --- POTEM tworzymy chmurę trucizny ---
     poisonCloud = G_Spawn();

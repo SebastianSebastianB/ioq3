@@ -980,6 +980,12 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		CG_MissileHitWall( es->weapon, 0, position, dir, IMPACTSOUND_METAL );
 		break;
 
+	case EV_MISSILE_MISS_POISON:
+		DEBUGNAME("EV_MISSILE_MISS_POISON");
+		ByteToDir( es->eventParm, dir );
+		CG_MissileHitWall_Poison( es->weapon, 0, position, dir, IMPACTSOUND_DEFAULT );
+		break;
+
 	case EV_RAILTRAIL:
 		DEBUGNAME("EV_RAILTRAIL");
 		cent->currentState.weapon = WP_RAILGUN;
