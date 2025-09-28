@@ -864,6 +864,9 @@ static void CG_RegisterGraphics( void ) {
 
 	cgs.media.waterBubbleShader = trap_R_RegisterShader( "waterBubble" );
 
+	// my_mod: poison cloud shader
+	cgs.media.poisonCloudShader = trap_R_RegisterShader( "textures/my_mod/poison_cloud" );
+
 	cgs.media.tracerShader = trap_R_RegisterShader( "gfx/misc/tracer" );
 	cgs.media.selectShader = trap_R_RegisterShader( "gfx/2d/select" );
 

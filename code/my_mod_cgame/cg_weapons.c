@@ -22,6 +22,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 //
 // cg_weapons.c -- events and effects dealing with weapons
 #include "cg_local.h"
+// my_mod: forward declaration
+static void CG_SpawnPoisonCloud( const vec3_t origin );
 
 /*
 ==========================
@@ -1934,6 +1936,11 @@ void CG_MissileHitWall( int weapon, int clientNum, vec3_t origin, vec3_t dir, im
 	} else {
 		CG_ImpactMark( mark, origin, dir, random()*360, 1,1,1,1, alphaFade, radius, qfalse );
 	}
+
+	// my_mod: spawn persistent poison cloud visual only for grenade launcher
+	if ( weapon == WP_GRENADE_LAUNCHER ) {
+		CG_SpawnPoisonCloud( origin );
+	}
 }
 
 /*
@@ -2143,7 +2150,66 @@ void CG_MissileHitWall_Poison( int weapon, int clientNum, vec3_t origin, vec3_t 
 	} else {
 		CG_ImpactMark( mark, origin, dir, random()*360, 1,1,1,1, alphaFade, radius, qfalse );
 	}
+
+	// my_mod: spawn persistent poison cloud visual for grenade launcher in poison path
+	if ( weapon == WP_GRENADE_LAUNCHER ) {
+		CG_SpawnPoisonCloud( origin );
+	}
 }
+
+
+	/*
+	=================
+	CG_SpawnPoisonCloud
+
+	Spawns a persistent sprite-based visual cloud using the my_mod shader.
+	The cloud slowly rises and fades over ~10 seconds.
+	=================
+	*/
+	static void CG_SpawnPoisonCloud( const vec3_t origin ) {
+		localEntity_t *le;
+		refEntity_t   *re;
+		vec3_t         vel;
+
+		if (!cgs.media.poisonCloudShader) {
+			// Fallback: do nothing if shader failed to load
+			return;
+		}
+
+		VectorSet( vel, 0, 0, 6 ); // subtle upward drift
+
+		le = CG_AllocLocalEntity();
+		le->leFlags = 0;
+		le->leType = LE_MOVE_SCALE_FADE;
+		le->startTime = cg.time;
+		le->endTime = cg.time + 10000; // 10s lifetime
+		le->fadeInTime = cg.time + 500; // small fade-in
+		le->lifeRate = 1.0f / ( le->endTime - le->fadeInTime );
+		le->radius = 220.0f; // big puff radius to feel like a cloud
+		le->color[0] = 0.0f; // RGB tint (shader already colors, keep white)
+		le->color[1] = 1.0f;
+		le->color[2] = 0.2f;
+		le->color[3] = 0.4f;
+
+		// movement
+		le->pos.trType = TR_LINEAR;
+		le->pos.trTime = cg.time;
+		VectorCopy( vel, le->pos.trDelta );
+		VectorCopy( origin, le->pos.trBase );
+
+		// render as sprite with custom shader
+		re = &le->refEntity;
+		re->reType = RT_SPRITE;
+		re->customShader = cgs.media.poisonCloudShader;
+		re->shaderTime = cg.time / 1000.0f;
+		VectorCopy( origin, re->origin );
+		re->radius = le->radius;
+		re->shaderRGBA[0] = (byte)(le->color[0] * 255);
+		re->shaderRGBA[1] = (byte)(le->color[1] * 255);
+		re->shaderRGBA[2] = (byte)(le->color[2] * 255);
+		re->shaderRGBA[3] = (byte)(le->color[3] * 255);
+	}
+
 
 
 /*

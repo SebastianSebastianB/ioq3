@@ -1019,7 +1019,19 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 	case EV_MISSILE_HIT:
 		DEBUGNAME("EV_MISSILE_HIT");
 		ByteToDir( es->eventParm, dir );
-		CG_MissileHitPlayer( es->weapon, position, dir, es->otherEntityNum );
+		// my_mod: if poison-grenade marker is present, use the normal weapon for player hit visuals
+		if ( es->weapon >= WP_GRENADE_LAUNCHER + 100 ) {
+			int normalWeapon = es->weapon - 100;
+			CG_MissileHitPlayer( normalWeapon, position, dir, es->otherEntityNum );
+			// spawn persistent poison cloud visual only when the normal weapon is grenade launcher
+			if ( normalWeapon == WP_GRENADE_LAUNCHER && cgs.media.poisonCloudShader ) {
+				CG_SmokePuff( position, vec3_origin, 220.0f,
+						0.0f, 1.0f, 0.2f, 0.4f,
+						10000, cg.time, cg.time + 500, 0, cgs.media.poisonCloudShader );
+			}
+		} else {
+			CG_MissileHitPlayer( es->weapon, position, dir, es->otherEntityNum );
+		}
 		break;
 
 	case EV_MISSILE_MISS:

@@ -30,6 +30,7 @@ void Rocket_Cluster_Explode( gentity_t *ent, vec3_t surfaceNormal );
 // Forward declarations dla toksycznej chmury granatu
 void Poison_Cloud_Think( gentity_t *ent );
 void Grenade_Poison_Explode( gentity_t *ent );
+static void Poison_SpawnCloud( const vec3_t origin, gentity_t *owner );
 
 /*
 ================
@@ -121,18 +122,22 @@ void G_ExplodeMissile_Poison( gentity_t *ent ) {
 	dir[0] = dir[1] = 0;
 	dir[2] = 1;
 
-	ent->s.eType = ET_GENERAL;
+	// UWAGA: Pozostawiamy ET_MISSILE podczas dodawania eventu,
+	// aby pole s.weapon (z markerem trucizny) zostało przesłane do klienta.
+	// To różni się od oryginalnego G_ExplodeMissile, ale jest potrzebne,
+	// by klient mógł wykryć "poison" przy eksplozji czasowej granatu.
 	G_Printf("SERVER DEBUG: Using EV_MISSILE_MISS for poison grenade (temporary workaround)\n");
 	G_Printf("SERVER DEBUG: EV_MISSILE_MISS=%d, original weapon=%d\n", EV_MISSILE_MISS, ent->s.weapon);
-	// TEMPORARY: Use standard EV_MISSILE_MISS but mark weapon as special value for poison
+	// Oznacz broń specjalnym markerem dla trucizny
 	ent->s.weapon = WP_GRENADE_LAUNCHER + 100; // Special marker for poison grenade
-	G_Printf("SERVER DEBUG: After marker: weapon=%d, entity number=%d, eType=%d\n", 
-			ent->s.weapon, ent->s.number, ent->s.eType);
+	G_Printf("SERVER DEBUG: Before event: weapon=%d, entity number=%d, eType=%d (should be ET_MISSILE=%d)\n",
+		ent->s.weapon, ent->s.number, ent->s.eType, ET_MISSILE);
 	G_AddEvent( ent, EV_MISSILE_MISS, DirToByte( dir ) );
-	G_Printf("SERVER DEBUG: Event added, freeAfterEvent will be set to qtrue\n");
+	G_Printf("SERVER DEBUG: Event added (EV_MISSILE_MISS). Now setting freeAfterEvent and ET_GENERAL.\n");
 
-	// Utrzymuj zgodność z oryginałem: event-only entity zwalniane po evencie
+	// Zgodnie z ścieżką z G_MissileImpact: po dodaniu eventu robimy z bytu ET_GENERAL i flagujemy do zwolnienia
 	ent->freeAfterEvent = qtrue;
+	ent->s.eType = ET_GENERAL;
 
 	// splash damage
 	if ( ent->splashDamage ) {
@@ -143,6 +148,34 @@ void G_ExplodeMissile_Poison( gentity_t *ent ) {
 	}
 
 	trap_LinkEntity( ent );
+}
+
+
+/*
+======================================================================
+POISON_SPAWN_CLOUD
+Pomocnicza funkcja do tworzenia chmury trucizny w zadanym miejscu i z zadanym właścicielem
+======================================================================
+*/
+static void Poison_SpawnCloud( const vec3_t origin, gentity_t *owner ) {
+	gentity_t *poisonCloud;
+
+	poisonCloud = G_Spawn();
+	poisonCloud->classname = "poison_cloud";
+	poisonCloud->s.eType = ET_GENERAL; // byt bez specjalnego renderingu (ew. do efektów)
+	poisonCloud->think = Poison_Cloud_Think;
+	poisonCloud->nextthink = level.time + 500; // pierwszy tick za 500ms
+	poisonCloud->count = 20; // 20 ticków * 500ms = ~10s
+	poisonCloud->parent = owner;
+
+	// Ustaw pozycję chmury
+	G_SetOrigin(poisonCloud, (vec3_t) { origin[0], origin[1], origin[2] });
+	VectorCopy(origin, poisonCloud->r.currentOrigin);
+
+	// Opcjonalny efekt dźwiękowy (placeholder)
+	G_AddEvent(poisonCloud, EV_GENERAL_SOUND, G_SoundIndex("sound/misc/h2ohit1.wav"));
+
+	trap_LinkEntity(poisonCloud);
 }
 
 
@@ -463,12 +496,32 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 	// one, rather than changing the missile into the explosion?
 
 	if ( other->takedamage && other->client ) {
+		// my_mod: if this is our grenade, mark the weapon for poison so client can spawn cloud even on direct hit
+		int savedWeapon = ent->s.weapon;
+		if ( ent->s.weapon == WP_GRENADE_LAUNCHER && !strcmp(ent->classname, "grenade") ) {
+			ent->s.weapon = WP_GRENADE_LAUNCHER + 100; // poison marker
+		}
 		G_AddEvent( ent, EV_MISSILE_HIT, DirToByte( trace->plane.normal ) );
 		ent->s.otherEntityNum = other->s.number;
+		ent->s.weapon = savedWeapon;
 	} else if( trace->surfaceFlags & SURF_METALSTEPS ) {
 		G_AddEvent( ent, EV_MISSILE_MISS_METAL, DirToByte( trace->plane.normal ) );
 	} else {
+		// my_mod: if this is our grenade, mark the weapon for poison so client spawns cloud
+		int savedWeapon = ent->s.weapon;
+		if ( ent->s.weapon == WP_GRENADE_LAUNCHER && !strcmp(ent->classname, "grenade") ) {
+			ent->s.weapon = WP_GRENADE_LAUNCHER + 100; // poison marker
+		}
 		G_AddEvent( ent, EV_MISSILE_MISS, DirToByte( trace->plane.normal ) );
+		// restore original weapon to not affect other logic
+		ent->s.weapon = savedWeapon;
+	}
+
+	// Jeśli to granat z granatnika, dodaj chmurę trucizny także przy uderzeniu
+	if ( ent->s.weapon == WP_GRENADE_LAUNCHER && !strcmp(ent->classname, "grenade") ) {
+		vec3_t cloudOrg;
+		VectorCopy( trace->endpos, cloudOrg );
+		Poison_SpawnCloud( cloudOrg, ent->parent );
 	}
 
 	// Sprawdź czy to rakieta - jeśli tak, użyj eksplozji klastrowej
@@ -633,7 +686,7 @@ gentity_t *fire_grenade (gentity_t *self, vec3_t start, vec3_t dir) {
 	bolt = G_Spawn();
 	bolt->classname = "grenade";
 	bolt->nextthink = level.time + 2500;
-	bolt->think = G_ExplodeMissile_Poison; // Duplikat wybuchu: wersja poison
+	bolt->think = Grenade_Poison_Explode; // Eksplozja + spawn chmury trucizny
 	bolt->s.eType = ET_MISSILE;
 	bolt->r.svFlags = SVF_USE_CURRENT_ORIGIN;
 	bolt->s.weapon = WP_GRENADE_LAUNCHER;
@@ -756,7 +809,6 @@ Eksplozja granatu z chmurą trucizny
 ======================================================================
 */
 void Grenade_Poison_Explode( gentity_t *ent ) {
-    gentity_t *poisonCloud;
     vec3_t origin;
     
     G_Printf("--- Grenade Poison Explode! ---\n");
@@ -767,26 +819,8 @@ void Grenade_Poison_Explode( gentity_t *ent ) {
     // --- NAJPIERW nasza kopia eksplozji granatu ---
     G_ExplodeMissile_Poison(ent);
     
-    // --- POTEM tworzymy chmurę trucizny ---
-    poisonCloud = G_Spawn();
-    
-    poisonCloud->classname = "poison_cloud";
-    poisonCloud->s.eType = ET_GENERAL; // Może być niewidoczny lub z efektem
-    poisonCloud->think = Poison_Cloud_Think;
-    poisonCloud->nextthink = level.time + 500; // Pierwszy tick za 500ms
-    poisonCloud->count = 20; // 20 ticków * 500ms = 10 sekund
-    poisonCloud->parent = ent->parent; // Właściciel granatu
-    
-    // Ustawienie pozycji chmury
-    G_SetOrigin(poisonCloud, origin);
-    VectorCopy(origin, poisonCloud->r.currentOrigin);
-    
-    // Dodaj zielony efekt wizualny (jeśli dostępny)
-    G_AddEvent(poisonCloud, EV_GENERAL_SOUND, G_SoundIndex("sound/misc/h2ohit1.wav"));
-    
-    trap_LinkEntity(poisonCloud);
-    
-    G_Printf("--- Poison Cloud Created! Duration: 10 seconds ---\n");
+	// --- POTEM tworzymy chmurę trucizny ---
+	Poison_SpawnCloud(origin, ent->parent);
 }
 
 /*

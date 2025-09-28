@@ -978,10 +978,13 @@ typedef struct {
 	sfxHandle_t	n_healthSound;
 	sfxHandle_t	hgrenb1aSound;
 	sfxHandle_t	hgrenb2aSound;
-	sfxHandle_t	wstbimplSound;
-	sfxHandle_t	wstbimpmSound;
-	sfxHandle_t	wstbimpdSound;
-	sfxHandle_t	wstbactvSound;
+	sfxHandle_t wstbimplSound;
+	sfxHandle_t wstbimpmSound;
+	sfxHandle_t wstbimpdSound;
+	sfxHandle_t wstbactvSound;
+
+	// my_mod: custom shader handles
+	qhandle_t   poisonCloudShader; // textures/my_mod/poison_cloud
 
 } cgMedia_t;
 
