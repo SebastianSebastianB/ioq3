@@ -2170,11 +2170,10 @@ void CG_MissileHitWall_Poison( int weapon, int clientNum, vec3_t origin, vec3_t 
 		localEntity_t *le;
 		refEntity_t   *re;
 		vec3_t         vel;
+		qhandle_t      shader;
 
-		if (!cgs.media.poisonCloudShader) {
-			// Fallback: do nothing if shader failed to load
-			return;
-		}
+		// Choose shader: prefer custom poison cloud, otherwise fallback to smoke puff shader
+		shader = cgs.media.poisonCloudShader ? cgs.media.poisonCloudShader : cgs.media.smokePuffShader;
 
 		VectorSet( vel, 0, 0, 6 ); // subtle upward drift
 
@@ -2200,7 +2199,7 @@ void CG_MissileHitWall_Poison( int weapon, int clientNum, vec3_t origin, vec3_t 
 		// render as sprite with custom shader
 		re = &le->refEntity;
 		re->reType = RT_SPRITE;
-		re->customShader = cgs.media.poisonCloudShader;
+		re->customShader = shader;
 		re->shaderTime = cg.time / 1000.0f;
 		VectorCopy( origin, re->origin );
 		re->radius = le->radius;
@@ -2208,6 +2207,18 @@ void CG_MissileHitWall_Poison( int weapon, int clientNum, vec3_t origin, vec3_t 
 		re->shaderRGBA[1] = (byte)(le->color[1] * 255);
 		re->shaderRGBA[2] = (byte)(le->color[2] * 255);
 		re->shaderRGBA[3] = (byte)(le->color[3] * 255);
+
+		// Diagnostic print
+		CG_Printf("POISON CLOUD: sprite spawned at (%.1f, %.1f, %.1f), shader=%d, radius=%.1f, alpha=%.2f\n",
+			re->origin[0], re->origin[1], re->origin[2], re->customShader, re->radius, le->color[3]);
+
+		// Optional: if the engine or renderer ignores RT_SPRITE, spawn a backup puff
+		if (!shader) {
+			CG_SmokePuff( origin, vec3_origin, 180.0f,
+					le->color[0], le->color[1], le->color[2], le->color[3],
+					7000, cg.time, cg.time + 400, 0,
+					cgs.media.smokePuffShader );
+		}
 	}
 
 

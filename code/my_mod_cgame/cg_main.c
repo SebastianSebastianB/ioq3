@@ -866,6 +866,14 @@ static void CG_RegisterGraphics( void ) {
 
 	// my_mod: poison cloud shader
 	cgs.media.poisonCloudShader = trap_R_RegisterShader( "textures/my_mod/poison_cloud" );
+	if (!cgs.media.poisonCloudShader) {
+		CG_Printf("WARNING: Failed to register poison cloud shader! Check shaderlist.txt and my_mod.shader.\n");
+		// attempt a fallback to poison_smoke
+		cgs.media.poisonCloudShader = trap_R_RegisterShader( "textures/my_mod/poison_smoke" );
+		if (!cgs.media.poisonCloudShader) {
+			CG_Printf("WARNING: Fallback poison_smoke also failed to load.\n");
+		}
+	}
 
 	cgs.media.tracerShader = trap_R_RegisterShader( "gfx/misc/tracer" );
 	cgs.media.selectShader = trap_R_RegisterShader( "gfx/2d/select" );
