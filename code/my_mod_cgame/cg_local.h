@@ -233,7 +233,9 @@ typedef enum {
 	LEF_PUFF_DONT_SCALE  = 0x0001,			// do not scale size over time
 	LEF_TUMBLE			 = 0x0002,			// tumble over time, used for ejecting shells
 	LEF_SOUND1			 = 0x0004,			// sound 1 for kamikaze
-	LEF_SOUND2			 = 0x0008			// sound 2 for kamikaze
+	LEF_SOUND2			 = 0x0008,			// sound 2 for kamikaze
+	// my_mod: do not kill sprite when camera is inside (for big volumetric clouds)
+	LEF_NO_INSIDE_KILL   = 0x0010
 } leFlag_t;
 
 typedef enum {

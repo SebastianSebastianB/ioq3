@@ -2199,7 +2199,7 @@ void CG_MissileHitWall_Poison( int weapon, int clientNum, vec3_t origin, vec3_t 
 			start = cg.time + i * 120; // subtelne rozłożenie w czasie, ale ten sam koniec
 
 			le = CG_AllocLocalEntity();
-			le->leFlags = 0; // nie skalujemy specjalnie
+			le->leFlags = LEF_NO_INSIDE_KILL; // nie usuwaj, gdy kamera w środku
 			le->leType = LE_MOVE_SCALE_FADE;
 			le->startTime = start;
 			le->fadeInTime = start + 300;   // krótki fade-in

@@ -376,13 +376,15 @@ static void CG_AddMoveScaleFade( localEntity_t *le ) {
 
 	BG_EvaluateTrajectory( &le->pos, cg.time, re->origin );
 
-	// if the view would be "inside" the sprite, kill the sprite
-	// so it doesn't add too much overdraw
+	// if the view would be "inside" the sprite, kill the sprite to reduce overdraw
+	// my_mod: unless LEF_NO_INSIDE_KILL is set (used for big poison clouds)
 	VectorSubtract( re->origin, cg.refdef.vieworg, delta );
 	len = VectorLength( delta );
 	if ( len < le->radius ) {
-		CG_FreeLocalEntity( le );
-		return;
+		if ( !(le->leFlags & LEF_NO_INSIDE_KILL) ) {
+			CG_FreeLocalEntity( le );
+			return;
+		}
 	}
 
 	trap_R_AddRefEntityToScene( re );
@@ -412,13 +414,14 @@ static void CG_AddScaleFade( localEntity_t *le ) {
 	re->shaderRGBA[3] = 0xff * c * le->color[3];
 	re->radius = le->radius * ( 1.0 - c ) + 8;
 
-	// if the view would be "inside" the sprite, kill the sprite
-	// so it doesn't add too much overdraw
+	// if the view would be "inside" the sprite, kill the sprite unless flagged
 	VectorSubtract( re->origin, cg.refdef.vieworg, delta );
 	len = VectorLength( delta );
 	if ( len < le->radius ) {
-		CG_FreeLocalEntity( le );
-		return;
+		if ( !(le->leFlags & LEF_NO_INSIDE_KILL) ) {
+			CG_FreeLocalEntity( le );
+			return;
+		}
 	}
 
 	trap_R_AddRefEntityToScene( re );
@@ -452,13 +455,14 @@ static void CG_AddFallScaleFade( localEntity_t *le ) {
 
 	re->radius = le->radius * ( 1.0 - c ) + 16;
 
-	// if the view would be "inside" the sprite, kill the sprite
-	// so it doesn't add too much overdraw
+	// if the view would be "inside" the sprite, kill the sprite unless flagged
 	VectorSubtract( re->origin, cg.refdef.vieworg, delta );
 	len = VectorLength( delta );
 	if ( len < le->radius ) {
-		CG_FreeLocalEntity( le );
-		return;
+		if ( !(le->leFlags & LEF_NO_INSIDE_KILL) ) {
+			CG_FreeLocalEntity( le );
+			return;
+		}
 	}
 
 	trap_R_AddRefEntityToScene( re );
