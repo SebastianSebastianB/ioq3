@@ -2167,57 +2167,71 @@ void CG_MissileHitWall_Poison( int weapon, int clientNum, vec3_t origin, vec3_t 
 	=================
 	*/
 	static void CG_SpawnPoisonCloud( const vec3_t origin ) {
-		localEntity_t *le;
-		refEntity_t   *re;
-		vec3_t         vel;
-		qhandle_t      shader;
-
-		// Choose shader: prefer custom poison cloud, otherwise fallback to smoke puff shader
+		qhandle_t shader;
+		int i, count;
+		// Preferowany shader chmury; fallback do smoke, jeśli brak
 		shader = cgs.media.poisonCloudShader ? cgs.media.poisonCloudShader : cgs.media.smokePuffShader;
 
-		VectorSet( vel, 0, 0, 6 ); // subtle upward drift
+		// Kilka większych sprite'ów z losowym przesunięciem i delikatnym dryfem
+		count = 5;
+		for ( i = 0; i < count; i++ ) {
+			localEntity_t *le;
+			refEntity_t   *re;
+			vec3_t         base, ofs, vel;
+			float          rad, a;
+			int            start;
 
-		le = CG_AllocLocalEntity();
-		le->leFlags = 0;
-		le->leType = LE_MOVE_SCALE_FADE;
-		le->startTime = cg.time;
-		le->endTime = cg.time + 10000; // 10s lifetime
-		le->fadeInTime = cg.time + 500; // small fade-in
-		le->lifeRate = 1.0f / ( le->endTime - le->fadeInTime );
-		le->radius = 220.0f; // big puff radius to feel like a cloud
-		le->color[0] = 0.0f; // RGB tint (shader already colors, keep white)
-		le->color[1] = 1.0f;
-		le->color[2] = 0.2f;
-		le->color[3] = 0.4f;
+			// losowe przesunięcia w poziomie i trochę w górę, żeby dodać objętości
+			ofs[0] = crandom() * 160.0f; // ~320 szerokości
+			ofs[1] = crandom() * 160.0f;
+			ofs[2] = random() * 64.0f;   // odrobina wysokości
+			VectorAdd( origin, ofs, base );
 
-		// movement
-		le->pos.trType = TR_LINEAR;
-		le->pos.trTime = cg.time;
-		VectorCopy( vel, le->pos.trDelta );
-		VectorCopy( origin, le->pos.trBase );
+			// losowy promień i alfa (lekka zmienność)
+			rad = 320.0f + crandom() * 60.0f; // ~260..380 -> duża chmura
+			a = 0.30f + random() * 0.18f;     // 0.30..0.48
 
-		// render as sprite with custom shader
-		re = &le->refEntity;
-		re->reType = RT_SPRITE;
-		re->customShader = shader;
-		re->shaderTime = cg.time / 1000.0f;
-		VectorCopy( origin, re->origin );
-		re->radius = le->radius;
-		re->shaderRGBA[0] = (byte)(le->color[0] * 255);
-		re->shaderRGBA[1] = (byte)(le->color[1] * 255);
-		re->shaderRGBA[2] = (byte)(le->color[2] * 255);
-		re->shaderRGBA[3] = (byte)(le->color[3] * 255);
+			// delikatny dryf do góry + lekki boczny, żeby było "żywe"
+			vel[0] = crandom() * 4.0f;
+			vel[1] = crandom() * 4.0f;
+			vel[2] = 6.0f + random() * 2.0f;
 
-		// Diagnostic print
-		CG_Printf("POISON CLOUD: sprite spawned at (%.1f, %.1f, %.1f), shader=%d, radius=%.1f, alpha=%.2f\n",
-			re->origin[0], re->origin[1], re->origin[2], re->customShader, re->radius, le->color[3]);
+			start = cg.time + i * 120; // subtelne rozłożenie w czasie, ale ten sam koniec
 
-		// Optional: if the engine or renderer ignores RT_SPRITE, spawn a backup puff
-		if (!shader) {
-			CG_SmokePuff( origin, vec3_origin, 180.0f,
-					le->color[0], le->color[1], le->color[2], le->color[3],
-					7000, cg.time, cg.time + 400, 0,
-					cgs.media.smokePuffShader );
+			le = CG_AllocLocalEntity();
+			le->leFlags = 0; // nie skalujemy specjalnie
+			le->leType = LE_MOVE_SCALE_FADE;
+			le->startTime = start;
+			le->fadeInTime = start + 300;   // krótki fade-in
+			le->endTime = cg.time + 10000;  // pełne 10s od eksplozji
+			le->lifeRate = 1.0f / ( le->endTime - le->fadeInTime );
+			le->radius = rad;
+			// lekka zielonkawa poświata; shader używa alpha
+			le->color[0] = 0.0f;
+			le->color[1] = 0.95f + crandom()*0.05f; // ~0.9..1.0
+			le->color[2] = 0.2f + crandom()*0.05f;  // ~0.15..0.25
+			le->color[3] = a;
+
+			// ruch
+			le->pos.trType = TR_LINEAR;
+			le->pos.trTime = start;
+			VectorCopy( vel, le->pos.trDelta );
+			VectorCopy( base, le->pos.trBase );
+
+			// render jako sprite z naszym shaderem
+			re = &le->refEntity;
+			re->reType = RT_SPRITE;
+			re->customShader = shader;
+			re->shaderTime = start / 1000.0f;
+			VectorCopy( base, re->origin );
+			re->radius = le->radius;
+			re->shaderRGBA[0] = (byte)(le->color[0] * 255);
+			re->shaderRGBA[1] = (byte)(le->color[1] * 255);
+			re->shaderRGBA[2] = (byte)(le->color[2] * 255);
+			re->shaderRGBA[3] = (byte)(le->color[3] * 255);
+			// Diagnostic print per sprite
+			CG_Printf("POISON CLOUD: sprite[%d] at (%.1f, %.1f, %.1f), shader=%d, radius=%.1f, alpha=%.2f\n",
+				i, re->origin[0], re->origin[1], re->origin[2], re->customShader, re->radius, le->color[3]);
 		}
 	}
 

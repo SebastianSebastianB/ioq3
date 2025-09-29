@@ -764,7 +764,7 @@ void Poison_Cloud_Think( gentity_t *ent ) {
     int i;
     gentity_t *target;
     vec3_t distance;
-    float radius = 150.0f; // Promień działania chmury trucizny
+	float radius = 240.0f; // Powiększony promień działania chmury trucizny
     
     G_Printf("--- Poison Cloud Tick! Remaining time: %d ms ---\n", ent->nextthink - level.time);
     
