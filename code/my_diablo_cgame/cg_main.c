@@ -824,9 +824,12 @@ static void CG_RegisterGraphics( void ) {
 	memset( &cg.refdef, 0, sizeof( cg.refdef ) );
 	trap_R_ClearScene();
 
-	CG_LoadingString( cgs.mapname );
-
-	trap_R_LoadWorldMap( cgs.mapname );
+	if ( !cg.world.active ) {
+		CG_LoadingString( cgs.mapname );
+		trap_R_LoadWorldMap( cgs.mapname );
+	} else {
+		CG_LoadingString( cg.world.worldName );
+	}
 
 	// precache status bar pics
 	CG_LoadingString( "game media" );
@@ -1880,7 +1883,7 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 
 	cg.clientNum = clientNum;
 
-	cgs.processedSnapshotNum = serverMessageNum;
+	cgs.processedSnapshotNum = 0;  // Start from 0 to process all available snapshots
 	cgs.serverCommandSequence = serverCommandSequence;
 
 	// load a few needed things before we do any screen updates
@@ -1919,10 +1922,16 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 
 	CG_ParseServerinfo();
 
-	// load the new map
-	CG_LoadingString( "collision map" );
+	CG_LoadingString( "world definition" );
+	CG_LoadWorldDefinition( cgs.mapname );
 
-	trap_CM_LoadMap( cgs.mapname );
+	// load the new map or initialize custom world data
+	if ( !cg.world.active ) {
+		CG_LoadingString( "collision map" );
+		trap_CM_LoadMap( cgs.mapname );
+	} else {
+		CG_LoadingString( "world terrain" );
+	}
 
 #ifdef MISSIONPACK
 	String_Init();

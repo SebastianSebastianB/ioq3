@@ -257,12 +257,17 @@ static snapshot_t *CG_ReadNextSnapshot( void ) {
 	qboolean	r;
 	snapshot_t	*dest;
 
+	CG_Printf("DEBUG: CG_ReadNextSnapshot entry, latestSnapshotNum=%d, processedSnapshotNum=%d\n", 
+		cg.latestSnapshotNum, cgs.processedSnapshotNum);
+
 	if ( cg.latestSnapshotNum > cgs.processedSnapshotNum + 1000 ) {
 		CG_Printf( "WARNING: CG_ReadNextSnapshot: way out of range, %i > %i\n", 
 			cg.latestSnapshotNum, cgs.processedSnapshotNum );
 	}
 
 	while ( cgs.processedSnapshotNum < cg.latestSnapshotNum ) {
+		CG_Printf("DEBUG: CG_ReadNextSnapshot loop, processedSnapshotNum=%d, latestSnapshotNum=%d\n", 
+			cgs.processedSnapshotNum, cg.latestSnapshotNum);
 		// decide which of the two slots to load it into
 		if ( cg.snap == &cg.activeSnapshots[0] ) {
 			dest = &cg.activeSnapshots[1];
@@ -272,7 +277,9 @@ static snapshot_t *CG_ReadNextSnapshot( void ) {
 
 		// try to read the snapshot from the client system
 		cgs.processedSnapshotNum++;
+		CG_Printf("DEBUG: Calling trap_GetSnapshot with num=%d\n", cgs.processedSnapshotNum);
 		r = trap_GetSnapshot( cgs.processedSnapshotNum, dest );
+		CG_Printf("DEBUG: trap_GetSnapshot returned %d\n", r);
 
 		// FIXME: why would trap_GetSnapshot return a snapshot with the same server time
 		if ( cg.snap && r && dest->serverTime == cg.snap->serverTime ) {
@@ -325,8 +332,10 @@ void CG_ProcessSnapshots( void ) {
 	snapshot_t		*snap;
 	int				n;
 
+	CG_Printf("DEBUG: CG_ProcessSnapshots entry\n");
 	// see what the latest snapshot the client system has is
 	trap_GetCurrentSnapshotNumber( &n, &cg.latestSnapshotTime );
+	CG_Printf("DEBUG: trap_GetCurrentSnapshotNumber returned n=%d, cg.latestSnapshotTime=%d\n", n, cg.latestSnapshotTime);
 	if ( n != cg.latestSnapshotNum ) {
 		if ( n < cg.latestSnapshotNum ) {
 			// this should never happen
@@ -338,9 +347,13 @@ void CG_ProcessSnapshots( void ) {
 	// If we have yet to receive a snapshot, check for it.
 	// Once we have gotten the first snapshot, cg.snap will
 	// always have valid data for the rest of the game
+	CG_Printf("DEBUG: Checking for initial snapshot, cg.snap=%p\n", cg.snap);
 	while ( !cg.snap ) {
+		CG_Printf("DEBUG: Calling CG_ReadNextSnapshot\n");
 		snap = CG_ReadNextSnapshot();
+		CG_Printf("DEBUG: CG_ReadNextSnapshot returned %p\n", snap);
 		if ( !snap ) {
+			CG_Printf("DEBUG: No snapshot available, returning\n");
 			// we can't continue until we get a snapshot
 			return;
 		}

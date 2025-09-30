@@ -266,6 +266,13 @@ Chooses a player start, deathmatch start, etc
 ============
 */
 gentity_t *SelectSpawnPoint ( vec3_t avoidPoint, vec3_t origin, vec3_t angles, qboolean isbot ) {
+	if ( level.usingWorldDefinition ) {
+		if ( G_WorldPlayerStart( origin, angles ) ) {
+			origin[2] += 9;
+			return NULL;
+		}
+	}
+
 	return SelectRandomFurthestSpawnPoint( avoidPoint, origin, angles, isbot );
 
 	/*
@@ -307,6 +314,13 @@ use normal spawn selection.
 */
 gentity_t *SelectInitialSpawnPoint( vec3_t origin, vec3_t angles, qboolean isbot ) {
 	gentity_t	*spot;
+
+	if ( level.usingWorldDefinition ) {
+		if ( G_WorldPlayerStart( origin, angles ) ) {
+			origin[2] += 9;
+			return NULL;
+		}
+	}
 
 	spot = NULL;
 	
@@ -1158,6 +1172,13 @@ void ClientSpawn(gentity_t *ent) {
 	ent->waterlevel = 0;
 	ent->watertype = 0;
 	ent->flags = 0;
+
+	if ( level.usingWorldDefinition ) {
+		client->ps.pm_type = PM_NOCLIP;
+		client->ps.gravity = 0;
+		ent->r.contents = 0;
+		ent->clipmask = 0;
+	}
 	
 	VectorCopy (playerMins, ent->r.mins);
 	VectorCopy (playerMaxs, ent->r.maxs);
@@ -1204,8 +1225,10 @@ void ClientSpawn(gentity_t *ent) {
 			// force the base weapon up
 			client->ps.weapon = WP_MACHINEGUN;
 			client->ps.weaponstate = WEAPON_READY;
-			// fire the targets of the spawn point
-			G_UseTargets(spawnPoint, ent);
+			// fire the targets of the spawn point when available
+			if (spawnPoint) {
+				G_UseTargets(spawnPoint, ent);
+			}
 			// select the highest weapon number available, after any spawn given items have fired
 			client->ps.weapon = 1;
 

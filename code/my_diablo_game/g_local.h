@@ -25,7 +25,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "../qcommon/q_shared.h"
 #include "bg_public.h"
 #include "g_public.h"
-
 //==================================================================
 
 // the "gameversion" client command will print this plus compile date
@@ -407,6 +406,8 @@ typedef struct {
 #ifdef MISSIONPACK
 	int			portalSequence;
 #endif
+	qboolean	usingWorldDefinition;
+	char		worldFile[MAX_QPATH];
 } level_locals_t;
 
 
@@ -648,6 +649,10 @@ void G_InitSessionData( gclient_t *client, char *userinfo );
 void G_InitWorldSession( void );
 void G_WriteSessionData( void );
 
+qboolean G_LoadWorldDefinition( const char *mapName );
+void	G_ClearWorldDefinition( void );
+qboolean G_WorldPlayerStart( vec3_t origin, vec3_t angles );
+void	G_InitWorldForDefinition( void );
 //
 // g_arenas.c
 //

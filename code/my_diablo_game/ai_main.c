@@ -81,6 +81,8 @@ vmCvar_t bot_interbreedbots;
 vmCvar_t bot_interbreedcycle;
 vmCvar_t bot_interbreedwrite;
 
+static qboolean botlibSetup = qfalse;
+
 
 void ExitLevel( void );
 
@@ -1371,10 +1373,20 @@ BotAILoadMap
 int BotAILoadMap( int restart ) {
 	int			i;
 	vmCvar_t	mapname;
+	int			loadResult;
+
+	if ( !botlibSetup ) {
+		return qfalse;
+	}
 
 	if (!restart) {
 		trap_Cvar_Register( &mapname, "mapname", "", CVAR_SERVERINFO | CVAR_ROM );
-		trap_BotLibLoadMap( mapname.string );
+		loadResult = trap_BotLibLoadMap( mapname.string );
+		if ( loadResult != BLERR_NOERROR ) {
+			BotAI_Print( PRT_WARNING, "BotAILoadMap: failed to load bot data for %s (error %d)\n", mapname.string, loadResult );
+			botlibSetup = qfalse;
+			return qfalse;
+		}
 	}
 
 	for (i = 0; i < MAX_CLIENTS; i++) {
@@ -1406,6 +1418,18 @@ int BotAIStartFrame(int time) {
 	static int local_time;
 	static int botlib_residual;
 	static int lastbotthink_time;
+	static qboolean reportedMissingBotLib = qfalse;
+	int startResult;
+
+	if ( !botlibSetup ) {
+		if ( !reportedMissingBotLib ) {
+			BotAI_Print( PRT_WARNING, "BotAIStartFrame: bot system is disabled (no bot library).\n" );
+			reportedMissingBotLib = qtrue;
+		}
+		return qfalse;
+	}
+
+	reportedMissingBotLib = qfalse;
 
 	G_CheckBotSpawn();
 
@@ -1477,7 +1501,14 @@ int BotAIStartFrame(int time) {
 	if ( botlib_residual >= thinktime ) {
 		botlib_residual -= thinktime;
 
-		trap_BotLibStartFrame((float) time / 1000);
+		startResult = trap_BotLibStartFrame((float) time / 1000);
+		if ( startResult != BLERR_NOERROR ) {
+			if ( startResult == BLERR_LIBRARYNOTSETUP ) {
+				botlibSetup = qfalse;
+			}
+			BotAI_Print( PRT_WARNING, "BotAIStartFrame: trap_BotLibStartFrame failed (error %d)\n", startResult );
+			return qfalse;
+		}
 
 		if (!trap_AAS_Initialized()) return qfalse;
 
@@ -1678,6 +1709,7 @@ int BotAISetup( int restart ) {
 
 	//if the game is restarted for a tournament
 	if (restart) {
+		botlibSetup = qtrue;
 		return qtrue;
 	}
 
@@ -1685,7 +1717,13 @@ int BotAISetup( int restart ) {
 	memset( botstates, 0, sizeof(botstates) );
 
 	errnum = BotInitLibrary();
-	if (errnum != BLERR_NOERROR) return qfalse;
+	if (errnum != BLERR_NOERROR) {
+		botlibSetup = qfalse;
+		BotAI_Print(PRT_WARNING, "BotAISetup: BotInitLibrary failed (error %d)\n", errnum);
+		return qfalse;
+	}
+
+	botlibSetup = qtrue;
 	return qtrue;
 }
 
@@ -1710,6 +1748,7 @@ int BotAIShutdown( int restart ) {
 	}
 	else {
 		trap_BotLibShutdown();
+		botlibSetup = qfalse;
 	}
 	return qtrue;
 }

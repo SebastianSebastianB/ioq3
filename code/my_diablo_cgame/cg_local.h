@@ -110,6 +110,53 @@ typedef enum {
 	IMPACTSOUND_FLESH
 } impactSound_t;
 
+typedef struct {
+	qboolean	active;
+	char		fileName[MAX_QPATH];
+	char		worldName[MAX_QPATH];
+	int			version;
+
+	qboolean	hasSkybox;
+	char		skybox[MAX_QPATH];
+
+	struct {
+		qboolean	enabled;
+		char		heightmap[MAX_QPATH];
+		char		splatmap[MAX_QPATH];
+		qboolean	hasScale;
+		float		scaleHorizontal;
+		float		scaleVertical;
+		char		baseTexture[MAX_QPATH];
+		char		redTexture[MAX_QPATH];
+		char		greenTexture[MAX_QPATH];
+		char		blueTexture[MAX_QPATH];
+		qboolean	resourcesLoaded;
+		int			heightmapWidth;
+		int			heightmapHeight;
+		float		*heightSamples;
+		polyVert_t	*meshVerts;
+		int			meshVertCount;
+		int			meshQuadCount;
+		qhandle_t	baseShader;
+		qhandle_t	redShader;
+		qhandle_t	greenShader;
+		qhandle_t	blueShader;
+		qhandle_t	splatmapShader;
+	} terrain;
+
+	qboolean	hasObjectsFile;
+	char		objectsFile[MAX_QPATH];
+
+	struct {
+		qboolean	hasSunDirection;
+		vec3_t		sunDirection;
+		qboolean	hasSunColor;
+		vec3_t		sunColor;
+		qboolean	hasAmbientColor;
+		vec3_t		ambientColor;
+	} lighting;
+} cg_worldInfo_t;
+
 //=================================================
 
 // player entities need to track more information
@@ -454,6 +501,8 @@ typedef struct {
 	int			clientFrame;		// incremented each frame
 
 	int			clientNum;
+
+	cg_worldInfo_t	world;
 	
 	qboolean	demoPlayback;
 	qboolean	levelShot;			// taking a level menu screenshot
@@ -1208,6 +1257,10 @@ void QDECL CG_Printf( const char *msg, ... ) Q_PRINTF_FUNC(1, 2);
 void QDECL CG_Error( const char *msg, ... ) Q_NO_RETURN Q_PRINTF_FUNC(1, 2);
 
 void CG_StartMusic( void );
+
+void CG_ClearWorldDefinition( void );
+qboolean CG_LoadWorldDefinition( const char *mapName );
+void CG_AddTerrainToScene( void );
 
 void CG_UpdateCvars( void );
 

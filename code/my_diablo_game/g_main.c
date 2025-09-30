@@ -436,6 +436,38 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	memset( &level, 0, sizeof( level ) );
 	level.time = levelTime;
 	level.startTime = levelTime;
+	G_ClearWorldDefinition();
+	level.usingWorldDefinition = qfalse;
+	level.worldFile[0] = '\0';
+
+	{
+		char mapFile[MAX_QPATH];
+		trap_Cvar_VariableStringBuffer( "mapname", mapFile, sizeof( mapFile ) );
+		G_Printf( "DEBUG: mapFile = '%s'\n", mapFile );
+		if ( mapFile[0] && COM_CompareExtension( mapFile, ".world" ) ) {
+			char resolved[MAX_QPATH];
+			const char *pathToWorld;
+
+			G_Printf( "DEBUG: Map has .world extension\n" );
+			if ( strchr( mapFile, '/' ) ) {
+				pathToWorld = mapFile;
+			} else {
+				Com_sprintf( resolved, sizeof( resolved ), "maps/%s", mapFile );
+				pathToWorld = resolved;
+			}
+
+			G_Printf( "DEBUG: pathToWorld = '%s'\n", pathToWorld );
+			if ( G_LoadWorldDefinition( pathToWorld ) ) {
+				G_Printf( "DEBUG: G_LoadWorldDefinition succeeded\n" );
+				level.usingWorldDefinition = qtrue;
+				Q_strncpyz( level.worldFile, pathToWorld, sizeof( level.worldFile ) );
+			} else {
+				G_Printf( "DEBUG: G_LoadWorldDefinition failed\n" );
+			}
+		} else {
+			G_Printf( "DEBUG: Map does NOT have .world extension\n" );
+		}
+	}
 
 	level.snd_fry = G_SoundIndex("sound/player/fry.wav");	// FIXME standing in lava / slime
 
@@ -493,8 +525,15 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	ClearRegisteredItems();
 
-	// parse the key/value pairs and spawn gentities
-	G_SpawnEntitiesFromString();
+	G_Printf( "DEBUG: level.usingWorldDefinition = %s\n", level.usingWorldDefinition ? "true" : "false" );
+	if ( level.usingWorldDefinition ) {
+		G_Printf( "DEBUG: Using G_InitWorldForDefinition\n" );
+		G_InitWorldForDefinition();
+	}
+	else {
+		G_Printf( "DEBUG: Using G_SpawnEntitiesFromString\n" );
+		G_SpawnEntitiesFromString();
+	}
 
 	// general initialization
 	G_FindTeams();
@@ -513,9 +552,28 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	}
 
 	if ( trap_Cvar_VariableIntegerValue( "bot_enable" ) ) {
-		BotAISetup( restart );
-		BotAILoadMap( restart );
-		G_InitBots( restart );
+		qboolean botsReady = qtrue;
+
+		if ( level.usingWorldDefinition ) {
+			G_Printf( "Bots are disabled for .world maps (no navigation data available).\n" );
+			trap_Cvar_Set( "bot_enable", "0" );
+			botsReady = qfalse;
+		}
+		else if ( !BotAISetup( restart ) ) {
+			G_Printf( "Bot initialization failed (missing bot files?); disabling bots.\n" );
+			trap_Cvar_Set( "bot_enable", "0" );
+			botsReady = qfalse;
+		}
+
+		if ( botsReady ) {
+			if ( !BotAILoadMap( restart ) ) {
+				G_Printf( "Bot map data failed to load; disabling bots.\n" );
+				trap_Cvar_Set( "bot_enable", "0" );
+				BotAIShutdown( qfalse );
+			} else {
+				G_InitBots( restart );
+			}
+		}
 	}
 
 	G_RemapTeamShaders();
