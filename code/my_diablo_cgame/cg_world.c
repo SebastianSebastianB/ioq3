@@ -4,8 +4,9 @@
 #include "../qcommon/json.h"
 #undef JSON_IMPLEMENTATION
 
+// Minimal image loader for grayscale PGM (P5) heightmaps
 #define STB_IMAGE_IMPLEMENTATION
-#include "../../thirdparty/stb_image.h"
+#include "stb_image_stub.h"
 #undef STB_IMAGE_IMPLEMENTATION
 
 #define MAX_WORLD_FILE_SIZE 65536

@@ -1,3 +1,5 @@
+#include "tr_terrain_mesh.h"
+
 void RE_Terrain_Init( void ) {
     // placeholder init for terrain renderer prototype
 }
