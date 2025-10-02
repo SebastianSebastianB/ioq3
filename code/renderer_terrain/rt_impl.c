@@ -129,8 +129,16 @@ void RT_Render(RT_Handle* t, RT_EmitQuadFn emit, void* user){
     if(!t||!emit) return;
     // Simple tile-based LOD: tile size grows with distance
     int baseStep = 1;
+    int quadCount = 0;
+    int maxQuads = 4096; // Safety limit to prevent overflow
+    
     for(int ty=0; ty<t->height-1; ){
         for(int tx=0; tx<t->width-1; ){
+            // Check quad limit to prevent crashes
+            if(quadCount >= maxQuads) {
+                return; // Stop rendering to prevent overflow
+            }
+            
             // Determine step based on distance to tile center
             AABB b = tileBounds(t, tx, ty, tx+1, ty+1);
             if(!aabbVisible(&b, &t->cam)) { tx+=1; continue; }
@@ -138,7 +146,12 @@ void RT_Render(RT_Handle* t, RT_EmitQuadFn emit, void* user){
             RT_Vec3 v = { c.x - t->cam.origin.x, c.y - t->cam.origin.y, c.z - t->cam.origin.z };
             float d = sqrtf(dot3(v,v));
             int step = baseStep;
-            if(d>1024) step=8; else if(d>512) step=4; else if(d>256) step=2; else step=1;
+            // More aggressive LOD to reduce poly count
+            if(d>2048) step=16; 
+            else if(d>1024) step=8; 
+            else if(d>512) step=4; 
+            else if(d>256) step=2; 
+            else step=1;
             // Clamp step to not overshoot
             if(tx+step>=t->width) step = t->width-1 - tx;
             if(ty+step>=t->height) step = (step < (t->height-1-ty)) ? step : (t->height-1-ty);
@@ -147,6 +160,7 @@ void RT_Render(RT_Handle* t, RT_EmitQuadFn emit, void* user){
             if(aabbVisible(&tb, &t->cam)){
                 // Emit coarse quad; in practice, you would tessellate within the tile
                 emitQuadRT(t, tx, ty, step, emit, user);
+                quadCount++;
             }
             tx += step;
         }

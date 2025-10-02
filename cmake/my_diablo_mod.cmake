@@ -92,27 +92,30 @@ set_target_properties(ui_diablo PROPERTIES OUTPUT_NAME "ui")
 set_output_dirs(ui_diablo SUBDIRECTORY "my_diablo_output")
 
 # QVM sources for my_diablo mod
-set(CGAME_DIABLO_QVM_SOURCES "${SOURCE_DIR}/my_diablo_cgame/cg_syscalls.asm")
-set(QAGAME_DIABLO_QVM_SOURCES "${SOURCE_DIR}/my_diablo_game/g_syscalls.asm")
-set(UI_DIABLO_QVM_SOURCES "${SOURCE_DIR}/ui/ui_syscalls.asm")
-
-# QVM targets for my_diablo mod
-if(BUILD_GAME_QVMS)
-    add_qvm(cgameqvm_diablo
-        DEFINITIONS CGAME
-        OUTPUT_NAME cgame
-        OUTPUT_DIRECTORY my_diablo_output/vm
-        SOURCES ${CGAME_DIABLO_SOURCES} ${CGAME_DIABLO_QVM_SOURCES})
-    
-    add_qvm(qagameqvm_diablo
-        DEFINITIONS QAGAME
-        OUTPUT_NAME qagame
-        OUTPUT_DIRECTORY my_diablo_output/vm
-        SOURCES ${QAGAME_DIABLO_SOURCES} ${QAGAME_DIABLO_QVM_SOURCES})
-    
-    add_qvm(uiqvm_diablo
-        DEFINITIONS UI
-        OUTPUT_NAME ui
-        OUTPUT_DIRECTORY my_diablo_output/vm
-        SOURCES ${UI_DIABLO_SOURCES} ${UI_DIABLO_QVM_SOURCES})
-endif()
+# QVM targets for my_diablo mod - DISABLED (DLL-only mod)
+# The Diablo mod uses custom headers (json.h, stb_image_stub.h) that cannot compile to QVM.
+# We only need DLL modules (cgame.dll, qagame.dll, ui.dll).
+#
+# set(CGAME_DIABLO_QVM_SOURCES "${SOURCE_DIR}/my_diablo_cgame/cg_syscalls.asm")
+# set(QAGAME_DIABLO_QVM_SOURCES "${SOURCE_DIR}/my_diablo_game/g_syscalls.asm")
+# set(UI_DIABLO_QVM_SOURCES "${SOURCE_DIR}/ui/ui_syscalls.asm")
+#
+# if(BUILD_GAME_QVMS)
+#     add_qvm(cgameqvm_diablo
+#         DEFINITIONS CGAME
+#         OUTPUT_NAME cgame
+#         OUTPUT_DIRECTORY my_diablo_output/vm
+#         SOURCES ${CGAME_DIABLO_SOURCES} ${CGAME_DIABLO_QVM_SOURCES})
+#     
+#     add_qvm(qagameqvm_diablo
+#         DEFINITIONS QAGAME
+#         OUTPUT_NAME qagame
+#         OUTPUT_DIRECTORY my_diablo_output/vm
+#         SOURCES ${QAGAME_DIABLO_SOURCES} ${QAGAME_DIABLO_QVM_SOURCES})
+#     
+#     add_qvm(uiqvm_diablo
+#         DEFINITIONS UI
+#         OUTPUT_NAME ui
+#         OUTPUT_DIRECTORY my_diablo_output/vm
+#         SOURCES ${UI_DIABLO_SOURCES} ${UI_DIABLO_QVM_SOURCES})
+# endif()
