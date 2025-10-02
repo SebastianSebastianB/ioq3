@@ -2263,8 +2263,6 @@ void CG_Player( centity_t *cent ) {
 	vec3_t			dir, angles;
 #endif
 
-	CG_Printf("^5[PLAYER] CG_Player: ENTRY\n");
-
 	// the client number is stored in clientNum.  It can't be derived
 	// from the entity number, because a single client may have
 	// multiple corpses on the level using the same clientinfo
@@ -2274,17 +2272,12 @@ void CG_Player( centity_t *cent ) {
 	}
 	ci = &cgs.clientinfo[ clientNum ];
 
-	CG_Printf("^5[PLAYER] clientNum=%d, ci->infoValid=%d\n", clientNum, ci->infoValid);
-
 	// it is possible to see corpses from disconnected players that may
 	// not have valid clientinfo
 	if ( !ci->infoValid ) {
-		CG_Printf("^5[PLAYER] clientinfo not valid, returning\n");
 		return;
 	}
 
-	CG_Printf("^5[PLAYER] Getting player model information\n");
-	
 	// get the player model information
 	renderfx = 0;
 	if ( cent->currentState.number == cg.snap->ps.clientNum) {
@@ -2302,31 +2295,21 @@ void CG_Player( centity_t *cent ) {
 	memset( &torso, 0, sizeof(torso) );
 	memset( &head, 0, sizeof(head) );
 
-	CG_Printf("^5[PLAYER] Calling CG_PlayerAngles\n");
 	// get the rotation information
 	CG_PlayerAngles( cent, legs.axis, torso.axis, head.axis );
-	CG_Printf("^5[PLAYER] CG_PlayerAngles returned\n");
 	
-	CG_Printf("^5[PLAYER] Calling CG_PlayerAnimation\n");
 	// get the animation state (after rotation, to allow feet shuffle)
 	CG_PlayerAnimation( cent, &legs.oldframe, &legs.frame, &legs.backlerp,
 		 &torso.oldframe, &torso.frame, &torso.backlerp );
-	CG_Printf("^5[PLAYER] CG_PlayerAnimation returned\n");
 
-	CG_Printf("^5[PLAYER] Calling CG_PlayerSprites\n");
 	// add the talk baloon or disconnect icon
 	CG_PlayerSprites( cent );
-	CG_Printf("^5[PLAYER] CG_PlayerSprites returned\n");
 
-	CG_Printf("^5[PLAYER] Calling CG_PlayerShadow\n");
 	// add the shadow
 	shadow = CG_PlayerShadow( cent, &shadowPlane );
-	CG_Printf("^5[PLAYER] CG_PlayerShadow returned\n");
 
-	CG_Printf("^5[PLAYER] Calling CG_PlayerSplash\n");
 	// add a water splash if partially in and out of water
 	CG_PlayerSplash( cent );
-	CG_Printf("^5[PLAYER] CG_PlayerSplash returned\n");
 
 	if ( cg_shadows.integer == 3 && shadow ) {
 		renderfx |= RF_SHADOW_PLANE;

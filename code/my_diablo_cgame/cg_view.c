@@ -832,37 +832,24 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 	// build the render lists
 	if ( !cg.hyperspace ) {
 		// Draw skybox first (background) for world maps
-		CG_Printf("^1[CGAME] Drawing skybox\n");
 		CG_DrawWorldSkybox();
 		
 		// Add terrain FIRST (as world geometry/background)
 		CG_AddTerrainToScene();
 		
-		CG_Printf("^1[CGAME] Calling CG_AddPacketEntities\n");
 		CG_AddPacketEntities();			// adter calcViewValues, so predicted player state is correct
-		CG_Printf("^1[CGAME] CG_AddPacketEntities returned\n");
 		
-		CG_Printf("^1[CGAME] Calling CG_AddMarks\n");
 		CG_AddMarks();
-		CG_Printf("^1[CGAME] CG_AddMarks returned\n");
 		
-		CG_Printf("^1[CGAME] Calling CG_AddParticles\n");
 		CG_AddParticles ();
-		CG_Printf("^1[CGAME] CG_AddParticles returned\n");
 		
-		CG_Printf("^1[CGAME] Calling CG_AddLocalEntities\n");
 		CG_AddLocalEntities();
-		CG_Printf("^1[CGAME] CG_AddLocalEntities returned\n");
 		
 	}
-	CG_Printf("^1[CGAME] Calling CG_AddViewWeapon\n");
 	CG_AddViewWeapon( &cg.predictedPlayerState );
-	CG_Printf("^1[CGAME] CG_AddViewWeapon returned\n");
 
 	// add buffered sounds
-	CG_Printf("^1[CGAME] Calling CG_PlayBufferedSounds\n");
 	CG_PlayBufferedSounds();
-	CG_Printf("^1[CGAME] CG_PlayBufferedSounds returned\n");
 
 #ifdef MISSIONPACK
 	// play buffered voice chats

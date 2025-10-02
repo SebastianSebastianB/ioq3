@@ -531,11 +531,7 @@ static void SV_ClipMoveToEntities( moveclip_t *clip ) {
 	clipHandle_t	clipHandle;
 	float		*origin, *angles;
 
-	Com_Printf("^2[TRACE] SV_ClipMoveToEntities: ENTRY\n");
-	
 	num = SV_AreaEntities( clip->boxmins, clip->boxmaxs, touchlist, MAX_GENTITIES);
-	
-	Com_Printf("^2[TRACE] SV_ClipMoveToEntities: num=%d entities\n", num);
 
 	if ( clip->passEntityNum != ENTITYNUM_NONE ) {
 		passOwnerNum = ( SV_GentityNum( clip->passEntityNum ) )->r.ownerNum;
@@ -548,11 +544,8 @@ static void SV_ClipMoveToEntities( moveclip_t *clip ) {
 
 	for ( i=0 ; i<num ; i++ ) {
 		if ( clip->trace.allsolid ) {
-			Com_Printf("^2[TRACE] SV_ClipMoveToEntities: allsolid, EXIT\n");
 			return;
 		}
-		
-		Com_Printf("^2[TRACE] SV_ClipMoveToEntities: checking entity %d/%d (id=%d)\n", i+1, num, touchlist[i]);
 		
 		touch = SV_GentityNum( touchlist[i] );
 
@@ -578,8 +571,6 @@ static void SV_ClipMoveToEntities( moveclip_t *clip ) {
 		// might intersect, so do an exact clip
 		clipHandle = SV_ClipHandleForEntity (touch);
 
-		Com_Printf("^2[TRACE] SV_ClipMoveToEntities: clipHandle=%d\n", clipHandle);
-		
 		origin = touch->r.currentOrigin;
 		angles = touch->r.currentAngles;
 
@@ -588,13 +579,9 @@ static void SV_ClipMoveToEntities( moveclip_t *clip ) {
 			angles = vec3_origin;	// boxes don't rotate
 		}
 
-		Com_Printf("^2[TRACE] SV_ClipMoveToEntities: calling CM_TransformedBoxTrace\n");
-		
 		CM_TransformedBoxTrace ( &trace, (float *)clip->start, (float *)clip->end,
 			(float *)clip->mins, (float *)clip->maxs, clipHandle,  clip->contentmask,
 			origin, angles, clip->capsule);
-		
-		Com_Printf("^2[TRACE] SV_ClipMoveToEntities: CM_TransformedBoxTrace returned, fraction=%.3f\n", trace.fraction);
 
 		if ( trace.allsolid ) {
 			clip->trace.allsolid = qtrue;
@@ -615,8 +602,6 @@ static void SV_ClipMoveToEntities( moveclip_t *clip ) {
 			clip->trace.startsolid |= oldStart;
 		}
 	}
-	
-	Com_Printf("^2[TRACE] SV_ClipMoveToEntities: EXIT normally\n");
 }
 
 
@@ -843,9 +828,7 @@ void SV_Trace( trace_t *results, const vec3_t start, vec3_t mins, vec3_t maxs, c
 	}
 
 	// clip to other solid entities
-	Com_Printf("^5[TRACE] SV_Trace: calling SV_ClipMoveToEntities\n");
 	SV_ClipMoveToEntities ( &clip );
-	Com_Printf("^5[TRACE] SV_Trace: SV_ClipMoveToEntities returned\n");
 
 	*results = clip.trace;
 }

@@ -939,13 +939,9 @@ void ClientThink_real( gentity_t *ent ) {
 				ent->client->ps.pm_type = PM_SPINTERMISSION;
 			}
 		}
-		G_Printf("^6[GAME] ClientThink_real: calling Pmove\n");
 		Pmove (&pm);
-		G_Printf("^6[GAME] ClientThink_real: Pmove returned\n");
 #else
-		G_Printf("^6[GAME] ClientThink_real: calling Pmove\n");
 		Pmove (&pm);
-		G_Printf("^6[GAME] ClientThink_real: Pmove returned\n");
 #endif
 
 	// TERRAIN COLLISION FOR DIABLO MOD - TEMPORARILY DISABLED FOR CRASH DEBUG
@@ -977,7 +973,6 @@ void ClientThink_real( gentity_t *ent ) {
 	}
 
 	// save results of pmove
-	G_Printf("^6[GAME] ClientThink_real: saving pmove results\n");
 	if ( ent->client->ps.eventSequence != oldEventSequence ) {
 		ent->eventTime = level.time;
 	}
@@ -987,7 +982,6 @@ void ClientThink_real( gentity_t *ent ) {
 	else {
 		BG_PlayerStateToEntityState( &ent->client->ps, &ent->s, qtrue );
 	}
-	G_Printf("^6[GAME] ClientThink_real: calling SendPendingPredictableEvents\n");
 	SendPendingPredictableEvents( &ent->client->ps );
 
 	if ( !( ent->client->ps.eFlags & EF_FIRING ) ) {
