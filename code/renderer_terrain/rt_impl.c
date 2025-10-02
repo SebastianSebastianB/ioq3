@@ -54,19 +54,30 @@ static AABB tileBounds(RT_Handle* t, int x0,int y0,int x1,int y1){
 }
 
 static int aabbVisible(const AABB* b, const RT_Camera* c){
-    // Very conservative visibility: distance and FOV cone
+    // Very conservative visibility: distance and FOV cone with margin for edge triangles
     RT_Vec3 center = { (b->minx+b->maxx)*0.5f, (b->miny+b->maxy)*0.5f, (b->minz+b->maxz)*0.5f };
     RT_Vec3 v = { center.x - c->origin.x, center.y - c->origin.y, center.z - c->origin.z };
     float dist2 = dot3(v,v);
     if(dist2> c->zfar*c->zfar) return 0;
     float d = dot3(v, c->forward);
-    if(d<=0) return 0;
-    float halfFovX = c->fovX*0.5f * (3.14159265f/180.f);
-    float halfFovY = c->fovY*0.5f * (3.14159265f/180.f);
+    
+    // Allow tiles slightly behind camera (helps with edge cases)
+    float tileRadius = sqrtf((b->maxx-b->minx)*(b->maxx-b->minx) + 
+                             (b->maxy-b->miny)*(b->maxy-b->miny) + 
+                             (b->maxz-b->minz)*(b->maxz-b->minz)) * 0.5f;
+    if(d < -tileRadius) return 0;
+    
+    // Relaxed FOV check with margin (1.5x wider to catch edge triangles)
+    float halfFovX = c->fovX*0.5f * (3.14159265f/180.f) * 1.5f;
+    float halfFovY = c->fovY*0.5f * (3.14159265f/180.f) * 1.5f;
     // Project v to camera basis
     float vx = dot3(v, c->right);
     float vy = dot3(v, c->up);
     float vz = dot3(v, c->forward);
+    
+    // Avoid division by zero
+    if(fabsf(vz) < 0.01f) return 1;
+    
     float ax = fabsf(vx/vz);
     float ay = fabsf(vy/vz);
     if(ax>tanf(halfFovX) || ay>tanf(halfFovY)) return 0;
