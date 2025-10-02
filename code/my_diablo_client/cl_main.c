@@ -2722,6 +2722,7 @@ void CL_ConnectionlessPacket( netadr_t from, msg_t *msg ) {
 
 	// server connection
 	if ( !Q_stricmp(c, "connectResponse") ) {
+		Com_Printf("DEBUG: Received connectResponse packet\n");
 		if ( clc.state >= CA_CONNECTED ) {
 			Com_Printf ("Dup connect received. Ignored.\n");
 			return;
@@ -2764,8 +2765,10 @@ void CL_ConnectionlessPacket( netadr_t from, msg_t *msg ) {
 			      clc.challenge, qfalse);
 #endif
 
+		Com_Printf("DEBUG: Setting clc.state = CA_CONNECTED\n");
 		clc.state = CA_CONNECTED;
 		clc.lastPacketSentTime = -9999;		// send first packet immediately
+		Com_Printf("DEBUG: connectResponse handling complete\n");
 		return;
 	}
 
@@ -2962,6 +2965,12 @@ CL_Frame
 ==================
 */
 void CL_Frame ( int msec ) {
+
+	static int frameCount = 0;
+	frameCount++;
+	if (frameCount % 60 == 0 || clc.state == CA_CONNECTED || clc.state == CA_PRIMED) {
+		Com_Printf("DEBUG CL_Frame: frame=%d, clc.state=%d, msec=%d\n", frameCount, clc.state, msec);
+	}
 
 	if ( !com_cl_running->integer ) {
 		return;

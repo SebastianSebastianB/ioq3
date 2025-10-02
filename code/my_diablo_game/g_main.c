@@ -1856,29 +1856,47 @@ void G_RunFrame( int levelTime ) {
 	int			i;
 	gentity_t	*ent;
 
+	G_Printf("DEBUG G_RunFrame: ENTER, levelTime=%d\n", levelTime);
+
 	// if we are waiting for the level to restart, do nothing
 	if ( level.restarted ) {
 		return;
 	}
 
+	G_Printf("DEBUG G_RunFrame: After level.restarted check\n");
+
 	level.framenum++;
 	level.previousTime = level.time;
 	level.time = levelTime;
 
+	G_Printf("DEBUG G_RunFrame: After time updates\n");
+
 	// get any cvar changes
 	G_UpdateCvars();
+
+	G_Printf("DEBUG G_RunFrame: After G_UpdateCvars\n");
 
 	//
 	// go through all allocated objects
 	//
+	G_Printf("DEBUG G_RunFrame: BEFORE entity loop, level.num_entities=%d\n", level.num_entities);
 	ent = &g_entities[0];
 	for (i=0 ; i<level.num_entities ; i++, ent++) {
+		if (i % 10 == 0) {
+			G_Printf("DEBUG G_RunFrame: entity loop iteration i=%d, ent->inuse=%d\n", i, ent->inuse);
+		}
+		
 		if ( !ent->inuse ) {
 			continue;
 		}
 
+		if (i == 70) {
+			G_Printf("DEBUG G_RunFrame: Processing entity 70, eType=%d\n", ent->s.eType);
+		}
+
 		// clear events that are too old
 		if ( level.time - ent->eventTime > EVENT_VALID_MSEC ) {
+			if (i == 70) G_Printf("DEBUG G_RunFrame: entity 70 - old event check\n");
 			if ( ent->s.event ) {
 				ent->s.event = 0;	// &= EV_EVENT_BITS;
 				if ( ent->client ) {
@@ -1899,26 +1917,44 @@ void G_RunFrame( int levelTime ) {
 			}
 		}
 
+		if (i == 70) G_Printf("DEBUG G_RunFrame: entity 70 - after event clear\n");
+
 		// temporary entities don't think
 		if ( ent->freeAfterEvent ) {
 			continue;
 		}
 
+		if (i == 70) G_Printf("DEBUG G_RunFrame: entity 70 - after freeAfterEvent\n");
+
+		if (i == 70) {
+			G_Printf("DEBUG G_RunFrame: entity 70 - BEFORE linked check, ent=%p, &ent->r=%p\n", (void*)ent, (void*)&ent->r);
+			G_Printf("DEBUG G_RunFrame: entity 70 - classname='%s'\n", ent->classname ? ent->classname : "NULL");
+		}
+		
 		if ( !ent->r.linked && ent->neverFree ) {
 			continue;
 		}
 
+		if (i == 70) G_Printf("DEBUG G_RunFrame: entity 70 - after linked check\n");
+
 		if ( ent->s.eType == ET_MISSILE ) {
+			if (i == 70) G_Printf("DEBUG G_RunFrame: entity 70 - is MISSILE\n");
 			G_RunMissile( ent );
 			continue;
 		}
 
+		if (i == 70) G_Printf("DEBUG G_RunFrame: entity 70 - not MISSILE\n");
+
 		if ( ent->s.eType == ET_ITEM || ent->physicsObject ) {
+			if (i == 70) G_Printf("DEBUG G_RunFrame: entity 70 - is ITEM\n");
 			G_RunItem( ent );
 			continue;
 		}
 
+		if (i == 70) G_Printf("DEBUG G_RunFrame: entity 70 - not ITEM\n");
+
 		if ( ent->s.eType == ET_MOVER ) {
+			if (i == 70) G_Printf("DEBUG G_RunFrame: entity 70 - is MOVER\n");
 			G_RunMover( ent );
 			continue;
 		}

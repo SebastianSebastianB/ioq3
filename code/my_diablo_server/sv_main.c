@@ -1056,12 +1056,16 @@ void SV_Frame( int msec ) {
 	int		frameMsec;
 	int		startTime;
 
+	Com_Printf("DEBUG SV_Frame: ENTER, msec=%d\n", msec);
+
 	// the menu kills the server with this cvar
 	if ( sv_killserver->integer ) {
 		SV_Shutdown ("Server was killed");
 		Cvar_Set( "sv_killserver", "0" );
 		return;
 	}
+
+	Com_Printf("DEBUG SV_Frame: After sv_killserver check\n");
 
 	if (!com_sv_running->integer)
 	{
@@ -1074,16 +1078,22 @@ void SV_Frame( int msec ) {
 		return;
 	}
 
+	Com_Printf("DEBUG SV_Frame: After com_sv_running check\n");
+
 	// allow pause if only the local client is connected
 	if ( SV_CheckPaused() ) {
 		return;
 	}
 
+	Com_Printf("DEBUG SV_Frame: After SV_CheckPaused\n");
+
 	// if it isn't time for the next frame, do nothing
+	Com_Printf("DEBUG SV_Frame: BEFORE sv_fps check\n");
 	if ( sv_fps->integer < 1 ) {
 		Cvar_Set( "sv_fps", "10" );
 	}
 
+	Com_Printf("DEBUG SV_Frame: BEFORE frameMsec calculation\n");
 	frameMsec = 1000 / sv_fps->integer * com_timescale->value;
 	// don't let it scale below 1ms
 	if(frameMsec < 1)
@@ -1092,10 +1102,14 @@ void SV_Frame( int msec ) {
 		frameMsec = 1;
 	}
 
+	Com_Printf("DEBUG SV_Frame: BEFORE sv.timeResidual update\n");
 	sv.timeResidual += msec;
 
+	Com_Printf("DEBUG SV_Frame: BEFORE SV_BotFrame, com_dedicated=%d\n", com_dedicated->integer);
 	if (!com_dedicated->integer) SV_BotFrame (sv.time + sv.timeResidual);
+	Com_Printf("DEBUG SV_Frame: AFTER SV_BotFrame\n");
 
+	Com_Printf("DEBUG SV_Frame: BEFORE time checks\n");
 	// if time is about to hit the 32nd bit, kick all clients
 	// and clear sv.time, rather
 	// than checking for negative time wraparound everywhere.
@@ -1118,6 +1132,7 @@ void SV_Frame( int msec ) {
 		return;
 	}
 
+	Com_Printf("DEBUG SV_Frame: BEFORE cvar updates\n");
 	// update infostrings if anything has been changed
 	if ( cvar_modifiedFlags & CVAR_SERVERINFO ) {
 		SV_SetConfigstring( CS_SERVERINFO, Cvar_InfoString( CVAR_SERVERINFO ) );
@@ -1128,26 +1143,45 @@ void SV_Frame( int msec ) {
 		cvar_modifiedFlags &= ~CVAR_SYSTEMINFO;
 	}
 
+	Com_Printf("DEBUG SV_Frame: BEFORE com_speeds check\n");
 	if ( com_speeds->integer ) {
 		startTime = Sys_Milliseconds ();
 	} else {
 		startTime = 0;	// quite a compiler warning
 	}
 
+	Com_Printf("DEBUG SV_Frame: BEFORE SV_CalcPings\n");
 	// update ping based on the all received frames
 	SV_CalcPings();
+	Com_Printf("DEBUG SV_Frame: AFTER SV_CalcPings\n");
 
+	Com_Printf("DEBUG SV_Frame: com_dedicated pointer=%p\n", (void*)com_dedicated);
+	if (com_dedicated) {
+		Com_Printf("DEBUG SV_Frame: com_dedicated->integer=%d\n", com_dedicated->integer);
+	} else {
+		Com_Printf("DEBUG SV_Frame: com_dedicated is NULL!\n");
+	}
+	
+	Com_Printf("DEBUG SV_Frame: BEFORE second SV_BotFrame (dedicated), com_dedicated=%d\n", com_dedicated->integer);
 	if (com_dedicated->integer) SV_BotFrame (sv.time);
+	Com_Printf("DEBUG SV_Frame: Line1 after if\n");
+	Com_Printf("DEBUG SV_Frame: Line2 after if\n");
+	Com_Printf("DEBUG SV_Frame: AFTER second SV_BotFrame\n");
 
+	Com_Printf("DEBUG SV_Frame: BEFORE game simulation loop, sv.timeResidual=%d, frameMsec=%d\n", sv.timeResidual, frameMsec);
 	// run the game simulation in chunks
 	while ( sv.timeResidual >= frameMsec ) {
+		Com_Printf("DEBUG SV_Frame: INSIDE game loop iteration\n");
 		sv.timeResidual -= frameMsec;
 		svs.time += frameMsec;
 		sv.time += frameMsec;
 
+		Com_Printf("DEBUG SV_Frame: BEFORE VM_Call(GAME_RUN_FRAME)\n");
 		// let everything in the world think and move
 		VM_Call (gvm, GAME_RUN_FRAME, sv.time);
+		Com_Printf("DEBUG SV_Frame: AFTER VM_Call(GAME_RUN_FRAME)\n");
 	}
+	Com_Printf("DEBUG SV_Frame: AFTER game simulation loop\n");
 
 	if ( com_speeds->integer ) {
 		time_game = Sys_Milliseconds () - startTime;

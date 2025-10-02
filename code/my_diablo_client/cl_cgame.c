@@ -376,14 +376,15 @@ void CL_CM_LoadMap( const char *mapname ) {
 	int		checksum;
 
 	// Check if this is a .world file (heightmap-based terrain)
-	// If so, skip BSP loading since world files don't have collision maps
+	// TEMPORARY WORKAROUND: Load dummy BSP (q3dm0) to avoid crashes
+	// TODO: Fix collision system to work properly without BSP
 	if (strstr(mapname, ".world") != NULL) {
-		Com_Printf("CL_CM_LoadMap: Skipping BSP load for world file: %s\n", mapname);
+		Com_Printf("CL_CM_LoadMap: Loading dummy BSP for world file: %s\n", mapname);
+		Com_Printf("  Using maps/q3dm0.bsp as collision placeholder\n");
 		
-		// Clear collision map system - world maps use heightmap-based collision
-		// Professional solution: no dummy BSP needed on client side
-		CM_ClearMap();
-		Com_Printf("  Initialized empty collision map (client)\n");
+		// Load q3dm0 as a dummy BSP to provide valid collision data structures
+		CM_LoadMap( "maps/q3dm0.bsp", qtrue, &checksum );
+		Com_Printf("  Dummy BSP loaded (checksum: %d)\n", checksum);
 		return;
 	}
 
@@ -751,6 +752,8 @@ void CL_InitCGame( void ) {
 	int					t1, t2;
 	vmInterpret_t		interpret;
 
+	Com_Printf("=== CL_InitCGame START ===\n");
+
 	t1 = Sys_Milliseconds();
 
 	// put away the console
@@ -759,7 +762,17 @@ void CL_InitCGame( void ) {
 	// find the current mapname
 	info = cl.gameState.stringData + cl.gameState.stringOffsets[ CS_SERVERINFO ];
 	mapname = Info_ValueForKey( info, "mapname" );
-	Com_sprintf( cl.mapname, sizeof( cl.mapname ), "maps/%s.bsp", mapname );
+	Com_Printf("CL_InitCGame: mapname from server = '%s'\n", mapname);
+	// Check if this is a .world map (check if mapname already contains .world extension)
+	if ( strstr( mapname, ".world" ) != NULL ) {
+		// mapname already contains full path with .world extension
+		Com_sprintf( cl.mapname, sizeof( cl.mapname ), "%s", mapname );
+		Com_Printf("CL_InitCGame: Using world map: '%s'\n", cl.mapname);
+	} else {
+		// Standard BSP map
+		Com_sprintf( cl.mapname, sizeof( cl.mapname ), "maps/%s.bsp", mapname );
+		Com_Printf("CL_InitCGame: Using BSP map: '%s'\n", cl.mapname);
+	}
 
 	// load the dll or bytecode
 	interpret = Cvar_VariableValue("vm_cgame");

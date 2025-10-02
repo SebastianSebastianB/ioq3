@@ -668,6 +668,14 @@ CM_ClearMap
 void CM_ClearMap( void ) {
 	Com_Memset( &cm, 0, sizeof( cm ) );
 	CM_ClearLevelPatches();
+	
+	// For world maps without BSP, we still need valid visibility data
+	// Initialize minimal visibility info to prevent crashes
+	cm.numClusters = 1;  // At least one cluster
+	cm.clusterBytes = 32;  // Minimum size (rounded up to 32)
+	cm.visibility = Hunk_Alloc( cm.clusterBytes, h_high );
+	Com_Memset( cm.visibility, 255, cm.clusterBytes );  // All visible
+	cm.vised = qfalse;  // Not using real vis data
 }
 
 /*
