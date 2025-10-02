@@ -219,6 +219,74 @@ static void SV_Map_f( void ) {
 }
 
 /*
+==================
+SV_World_f
+
+Load a world definition file (.world) instead of a BSP map
+Based on SV_Map_f but checks for .world files
+==================
+*/
+static void SV_World_f( void ) {
+	char		*cmd;
+	char		*worldName;
+	qboolean	killBots, cheat;
+	char		expanded[MAX_QPATH];
+	char		worldpath[MAX_QPATH];
+
+	worldName = Cmd_Argv(1);
+	if ( !worldName || !worldName[0] ) {
+		Com_Printf("Usage: world <worldname> (without .world extension)\n");
+		return;
+	}
+
+	// Check if .world file exists
+	// Try with maps/ prefix first
+	Com_sprintf(expanded, sizeof(expanded), "maps/%s.world", worldName);
+	if ( FS_ReadFile(expanded, NULL) == -1 ) {
+		// Try without maps/ prefix
+		Com_sprintf(expanded, sizeof(expanded), "%s.world", worldName);
+		if ( FS_ReadFile(expanded, NULL) == -1 ) {
+			Com_Printf("Can't find world %s (tried maps/%s.world and %s.world)\n", 
+				worldName, worldName, worldName);
+			return;
+		}
+	}
+
+	Com_Printf("Loading world: %s\n", expanded);
+
+	// Force latched values to get set
+	Cvar_Get("g_gametype", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH);
+
+	cmd = Cmd_Argv(0);
+	// Check for devworld command for cheats
+	if (!Q_stricmp(cmd, "devworld")) {
+		cheat = qtrue;
+		killBots = qtrue;
+	} else {
+		cheat = qfalse;
+		killBots = qfalse;
+	}
+
+	// Always single player for world maps (no bots support yet)
+	Cvar_SetValue("g_gametype", GT_SINGLE_PLAYER);
+	Cvar_SetValue("g_doWarmup", 0);
+	Cvar_SetLatched("sv_maxclients", "8");
+
+	// Save the world path (with .world extension)
+	Q_strncpyz(worldpath, expanded, sizeof(worldpath));
+
+	// Start up the world
+	SV_SpawnServer(worldpath, killBots);
+
+	// Set cheat value
+	if (cheat) {
+		Cvar_Set("sv_cheats", "1");
+	} else {
+		Cvar_Set("sv_cheats", "0");
+	}
+}
+
+/*
 ================
 SV_MapRestart_f
 
@@ -1549,6 +1617,9 @@ void SV_AddOperatorCommands( void ) {
 	Cmd_AddCommand ("spdevmap", SV_Map_f);
 	Cmd_SetCommandCompletionFunc( "spdevmap", SV_CompleteMapName );
 #endif
+	// World commands for Diablo mod
+	Cmd_AddCommand ("world", SV_World_f);
+	Cmd_AddCommand ("devworld", SV_World_f);
 	Cmd_AddCommand ("killserver", SV_KillServer_f);
 	if( com_dedicated->integer ) {
 		Cmd_AddCommand ("say", SV_ConSay_f);

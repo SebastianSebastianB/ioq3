@@ -467,7 +467,15 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 	sv.checksumFeed = ( ((unsigned int)rand() << 16) ^ (unsigned int)rand() ) ^ Com_Milliseconds();
 	FS_Restart( sv.checksumFeed );
 
-	CM_LoadMap( va("maps/%s.bsp", server), qfalse, &checksum );
+	// Check if this is a .world file (heightmap-based terrain)
+	// If so, skip BSP loading since world files don't have collision maps
+	if (strstr(server, ".world") != NULL) {
+		Com_Printf("Loading world definition (no BSP): %s\n", server);
+		checksum = 0; // No BSP checksum for world files
+	} else {
+		// Regular BSP map loading
+		CM_LoadMap( va("maps/%s.bsp", server), qfalse, &checksum );
+	}
 
 	// set serverinfo visible name
 	Cvar_Set( "mapname", server );
