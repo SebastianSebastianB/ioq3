@@ -689,6 +689,13 @@ static int CG_CalcViewValues( void ) {
 		cg.refdef.rdflags |= RDF_NOWORLDMODEL | RDF_HYPERSPACE;
 	}
 
+	// For .world maps (heightmap-based terrain), tell renderer we don't have a BSP world model
+	// This prevents "R_RenderScene: NULL worldmodel" crash
+	if ( cg.world.terrain.enabled ) {
+		cg.refdef.rdflags |= RDF_NOWORLDMODEL;
+		CG_Printf("DEBUG: Set RDF_NOWORLDMODEL for terrain map\n");
+	}
+
 	// field of view
 	return CG_CalcFov();
 }

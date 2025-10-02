@@ -23,4 +23,3 @@ start ioquake3_diablo.exe +set fs_basepath "%~dp0build\Debug" +set fs_game my_di
 echo Gra uruchomiona! Sprawdz log w:
 echo C:\Users\%USERNAME%\AppData\Roaming\Quake3\my_diablo_output\qconsole.log
 echo.
-pause
