@@ -369,11 +369,30 @@ rescan:
 CL_CM_LoadMap
 
 Just adds default parameters that cgame doesn't need to know about
+Modified for my_diablo mod: skip BSP loading for .world files
 ====================
 */
 void CL_CM_LoadMap( const char *mapname ) {
 	int		checksum;
 
+	// Check if this is a .world file (heightmap-based terrain)
+	// If so, skip BSP loading since world files don't have collision maps
+	if (strstr(mapname, ".world") != NULL) {
+		Com_Printf("CL_CM_LoadMap: Skipping BSP load for world file: %s\n", mapname);
+		
+		// Load a dummy BSP to initialize CM system (same as server does)
+		// This prevents CM_InlineModel errors
+		if (FS_ReadFile("maps/q3dm0.bsp", NULL) > 0) {
+			CM_LoadMap("maps/q3dm0.bsp", qtrue, &checksum);
+			Com_Printf("  Using q3dm0.bsp as dummy collision map (client)\n");
+		} else {
+			// Fallback: clear the map
+			Com_Printf("  Warning: No dummy BSP loaded on client\n");
+		}
+		return;
+	}
+
+	// Regular BSP map loading
 	CM_LoadMap( mapname, qtrue, &checksum );
 }
 

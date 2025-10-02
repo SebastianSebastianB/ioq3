@@ -25,48 +25,49 @@ set(MY_DIABLO_SERVER_SOURCES
     # NOTE: sv_rankings.c removed - requires external ranking library
 )
 
-set(CLIENT_SOURCES
-    ${SOURCE_DIR}/client/cl_cgame.c
-    ${SOURCE_DIR}/client/cl_cin.c
-    ${SOURCE_DIR}/client/cl_console.c
-    ${SOURCE_DIR}/client/cl_input.c
-    ${SOURCE_DIR}/client/cl_keys.c
-    ${SOURCE_DIR}/client/cl_main.c
-    ${SOURCE_DIR}/client/cl_net_chan.c
-    ${SOURCE_DIR}/client/cl_parse.c
-    ${SOURCE_DIR}/client/cl_scrn.c
-    ${SOURCE_DIR}/client/cl_ui.c
-    ${SOURCE_DIR}/client/cl_avi.c
-    ${SOURCE_DIR}/client/libmumblelink.c
-    ${SOURCE_DIR}/client/snd_altivec.c
-    ${SOURCE_DIR}/client/snd_adpcm.c
-    ${SOURCE_DIR}/client/snd_dma.c
-    ${SOURCE_DIR}/client/snd_mem.c
-    ${SOURCE_DIR}/client/snd_mix.c
-    ${SOURCE_DIR}/client/snd_wavelet.c
-    ${SOURCE_DIR}/client/snd_main.c
-    ${SOURCE_DIR}/client/snd_codec.c
-    ${SOURCE_DIR}/client/snd_codec_wav.c
-    ${SOURCE_DIR}/client/snd_codec_ogg.c
-    ${SOURCE_DIR}/client/snd_codec_opus.c
-    ${SOURCE_DIR}/client/qal.c
-    ${SOURCE_DIR}/client/snd_openal.c
+# Use modified client sources from my_diablo_client folder
+set(MY_DIABLO_CLIENT_SOURCES
+    ${SOURCE_DIR}/my_diablo_client/cl_cgame.c
+    ${SOURCE_DIR}/my_diablo_client/cl_cin.c
+    ${SOURCE_DIR}/my_diablo_client/cl_console.c
+    ${SOURCE_DIR}/my_diablo_client/cl_input.c
+    ${SOURCE_DIR}/my_diablo_client/cl_keys.c
+    ${SOURCE_DIR}/my_diablo_client/cl_main.c
+    ${SOURCE_DIR}/my_diablo_client/cl_net_chan.c
+    ${SOURCE_DIR}/my_diablo_client/cl_parse.c
+    ${SOURCE_DIR}/my_diablo_client/cl_scrn.c
+    ${SOURCE_DIR}/my_diablo_client/cl_ui.c
+    ${SOURCE_DIR}/my_diablo_client/cl_avi.c
+    # NOTE: libmumblelink.c removed to avoid duplicate symbol errors
+    ${SOURCE_DIR}/my_diablo_client/snd_altivec.c
+    ${SOURCE_DIR}/my_diablo_client/snd_adpcm.c
+    ${SOURCE_DIR}/my_diablo_client/snd_dma.c
+    ${SOURCE_DIR}/my_diablo_client/snd_mem.c
+    ${SOURCE_DIR}/my_diablo_client/snd_mix.c
+    ${SOURCE_DIR}/my_diablo_client/snd_wavelet.c
+    ${SOURCE_DIR}/my_diablo_client/snd_main.c
+    ${SOURCE_DIR}/my_diablo_client/snd_codec.c
+    ${SOURCE_DIR}/my_diablo_client/snd_codec_wav.c
+    ${SOURCE_DIR}/my_diablo_client/snd_codec_ogg.c
+    ${SOURCE_DIR}/my_diablo_client/snd_codec_opus.c
+    ${SOURCE_DIR}/my_diablo_client/qal.c
+    ${SOURCE_DIR}/my_diablo_client/snd_openal.c
     ${SOURCE_DIR}/sdl/sdl_input.c
     ${SOURCE_DIR}/sdl/sdl_snd.c
     ${CLIENT_PLATFORM_SOURCES}
 )
 
-add_git_dependency(${SOURCE_DIR}/client/cl_console.c)
+add_git_dependency(${SOURCE_DIR}/my_diablo_client/cl_console.c)
 
 # Use custom binary name for Diablo mod client
 set(MY_DIABLO_CLIENT_BINARY "ioquake3_diablo")
 
 # Use same definitions as regular client (CLIENT_DEFINITIONS is set by platform/library configs)
 
-# Build binary with MY_DIABLO_SERVER_SOURCES instead of SERVER_SOURCES
+# Build binary with MY_DIABLO_SERVER_SOURCES and MY_DIABLO_CLIENT_SOURCES
 list(APPEND MY_DIABLO_CLIENT_BINARY_SOURCES
     ${MY_DIABLO_SERVER_SOURCES}
-    ${CLIENT_SOURCES}
+    ${MY_DIABLO_CLIENT_SOURCES}
     ${COMMON_SOURCES}
     ${BOTLIB_SOURCES}
     ${SYSTEM_SOURCES}
