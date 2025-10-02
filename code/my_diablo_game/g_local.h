@@ -652,6 +652,7 @@ void G_WriteSessionData( void );
 qboolean G_LoadWorldDefinition( const char *mapName );
 void	G_ClearWorldDefinition( void );
 qboolean G_WorldPlayerStart( vec3_t origin, vec3_t angles );
+const char *G_WorldGetSkybox( void );
 void	G_InitWorldForDefinition( void );
 //
 // g_arenas.c

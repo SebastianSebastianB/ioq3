@@ -6,10 +6,12 @@
 
 #define MAX_WORLD_FILE_SIZE 65536
 #define WORLD_PLAYER_START_KEY "player_start"
+#define WORLD_SKYBOX_KEY "skybox"
 
 typedef struct worldDefinition_s {
 	qboolean	active;
 	char		fileName[MAX_QPATH];
+	char		skyboxShader[MAX_QPATH];
 	vec3_t		playerStartOrigin;
 	qboolean	playerStartOriginSet;
 	vec3_t		playerStartAngles;
@@ -166,6 +168,18 @@ qboolean G_LoadWorldDefinition( const char *mapName ) {
 		G_Error( "World file '%s' must begin with a JSON object", pathToUse );
 	}
 
+	// Parse skybox shader name
+	{
+		const char *skyboxJson = JSON_ObjectGetNamedValue( buffer, jsonEnd, WORLD_SKYBOX_KEY );
+		if ( skyboxJson && JSON_ValueGetType( skyboxJson, jsonEnd ) == JSONTYPE_STRING ) {
+			char skyboxValue[MAX_QPATH];
+			if ( JSON_ValueGetString( skyboxJson, jsonEnd, skyboxValue, sizeof(skyboxValue) ) > 0 ) {
+				Q_strncpyz( g_world.skyboxShader, skyboxValue, sizeof( g_world.skyboxShader ) );
+				G_Printf( "DEBUG: Parsed skybox shader: '%s'\n", g_world.skyboxShader );
+			}
+		}
+	}
+
 	G_Printf( "DEBUG: About to call G_ParseWorldPlayerStart\n" );
 	G_ParseWorldPlayerStart( JSON_ObjectGetNamedValue( buffer, jsonEnd, "objects" ), jsonEnd );
 	G_Printf( "DEBUG: After G_ParseWorldPlayerStart - playerStartOriginSet=%d\n", g_world.playerStartOriginSet );
@@ -194,6 +208,13 @@ qboolean G_WorldPlayerStart( vec3_t origin, vec3_t angles ) {
 	return qtrue;
 }
 
+const char *G_WorldGetSkybox( void ) {
+	if ( !g_world.active ) {
+		return NULL;
+	}
+	return g_world.skyboxShader[0] ? g_world.skyboxShader : NULL;
+}
+
 void G_InitWorldForDefinition( void ) {
 	gentity_t *worldEnt = &g_entities[ENTITYNUM_WORLD];
 	gentity_t *noneEnt = &g_entities[ENTITYNUM_NONE];
@@ -207,6 +228,16 @@ void G_InitWorldForDefinition( void ) {
 	trap_Cvar_Set( "g_gravity", "800" );
 	trap_Cvar_Set( "g_enableDust", "0" );
 	trap_Cvar_Set( "g_enableBreath", "0" );
+
+	// Set skybox from world definition
+	{
+		const char *skyboxShader = G_WorldGetSkybox();
+		G_Printf( "DEBUG: G_InitWorldForDefinition - skyboxShader=%s\n", skyboxShader ? skyboxShader : "(null)" );
+		if ( skyboxShader && skyboxShader[0] ) {
+			G_Printf( "DEBUG: Setting skybox from world definition: '%s'\n", skyboxShader );
+			trap_Cvar_Set( "r_forceSky", skyboxShader );
+		}
+	}
 
 	worldEnt->s.number = ENTITYNUM_WORLD;
 	worldEnt->r.ownerNum = ENTITYNUM_NONE;

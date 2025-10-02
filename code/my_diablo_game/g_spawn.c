@@ -591,6 +591,18 @@ void SP_worldspawn( void ) {
 	G_SpawnString( "enableBreath", "0", &s );
 	trap_Cvar_Set( "g_enableBreath", s );
 
+	// For world definitions (.world files), use skybox from JSON via r_forceSky cvar
+	// This will override the skybox from the dummy BSP (q3dm0.bsp)
+	G_Printf( "DEBUG: SP_worldspawn - level.usingWorldDefinition=%d\n", level.usingWorldDefinition );
+	if ( level.usingWorldDefinition ) {
+		const char *skyboxShader = G_WorldGetSkybox();
+		G_Printf( "DEBUG: SP_worldspawn - skyboxShader=%s\n", skyboxShader ? skyboxShader : "(null)" );
+		if ( skyboxShader && skyboxShader[0] ) {
+			G_Printf( "DEBUG: Setting skybox from world definition: '%s'\n", skyboxShader );
+			trap_Cvar_Set( "r_forceSky", skyboxShader );
+		}
+	}
+
 	g_entities[ENTITYNUM_WORLD].s.number = ENTITYNUM_WORLD;
 	g_entities[ENTITYNUM_WORLD].r.ownerNum = ENTITYNUM_NONE;
 	g_entities[ENTITYNUM_WORLD].classname = "worldspawn";
