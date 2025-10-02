@@ -7,6 +7,7 @@ include(utils/set_output_dirs)
 set(RENDERER_TERRAIN_SOURCES
     ${SOURCE_DIR}/renderer_terrain/tr_terrain_stub.c
     ${SOURCE_DIR}/renderer_terrain/tr_terrain_mesh.c
+    ${SOURCE_DIR}/renderer_terrain/rt_impl.c
 )
 
 set(RENDERER_TERRAIN_BINARY renderer_terrain)

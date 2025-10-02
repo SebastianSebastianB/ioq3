@@ -9,6 +9,12 @@
 #include "stb_image_stub.h"
 #undef STB_IMAGE_IMPLEMENTATION
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+#include "../renderer_terrain/rt_api.h"
+
 #define MAX_WORLD_FILE_SIZE 65536
 
 #define MAX_HEIGHTMAP_FILE_SIZE (8 * 1024 * 1024)
@@ -19,6 +25,106 @@
 static byte s_heightmapFileBuffer[MAX_HEIGHTMAP_FILE_SIZE];
 static float s_heightSamples[MAX_TERRAIN_SAMPLES];
 static polyVert_t s_terrainQuads[MAX_TERRAIN_QUADS * 4];
+
+#ifdef _WIN32
+static HMODULE s_rtLib = NULL;
+#endif
+static RT_Handle* s_rt = NULL;
+
+typedef RT_Handle* (*PFN_RT_CreateFromHeights)(const float*, int, int, float, float);
+typedef void (*PFN_RT_Destroy)(RT_Handle*);
+typedef void (*PFN_RT_SetCamera)(RT_Handle*, const RT_Camera*);
+typedef void (*PFN_RT_Render)(RT_Handle*, RT_EmitQuadFn, void*);
+
+static PFN_RT_CreateFromHeights pRT_CreateFromHeights = NULL;
+static PFN_RT_Destroy          pRT_Destroy = NULL;
+static PFN_RT_SetCamera        pRT_SetCamera = NULL;
+static PFN_RT_Render           pRT_Render = NULL;
+
+static void CG_RT_Unload(void)
+{
+	if (s_rt && pRT_Destroy) {
+		pRT_Destroy(s_rt);
+	}
+	s_rt = NULL;
+#ifdef _WIN32
+	if (s_rtLib) {
+		FreeLibrary(s_rtLib);
+		s_rtLib = NULL;
+	}
+#endif
+	pRT_CreateFromHeights = NULL;
+	pRT_Destroy = NULL;
+	pRT_SetCamera = NULL;
+	pRT_Render = NULL;
+}
+
+static qboolean CG_RT_Load(void)
+{
+	if (pRT_CreateFromHeights && pRT_Render) return qtrue;
+#ifdef _WIN32
+	s_rtLib = LoadLibraryA("renderer_terrain.dll");
+	if (!s_rtLib) {
+		s_rtLib = LoadLibraryA("my_diablo_output\\renderer_terrain.dll");
+	}
+	if (!s_rtLib) {
+		CG_Printf(S_COLOR_YELLOW "WARNING: renderer_terrain.dll not found, fallback to simple mesh rendering\n");
+		return qfalse;
+	}
+	pRT_CreateFromHeights = (PFN_RT_CreateFromHeights)GetProcAddress(s_rtLib, "RT_CreateFromHeights");
+	pRT_Destroy           = (PFN_RT_Destroy)         GetProcAddress(s_rtLib, "RT_Destroy");
+	pRT_SetCamera         = (PFN_RT_SetCamera)       GetProcAddress(s_rtLib, "RT_SetCamera");
+	pRT_Render            = (PFN_RT_Render)          GetProcAddress(s_rtLib, "RT_Render");
+	if (!pRT_CreateFromHeights || !pRT_Destroy || !pRT_SetCamera || !pRT_Render) {
+		CG_Printf(S_COLOR_YELLOW "WARNING: renderer_terrain.dll missing required exports\n");
+		CG_RT_Unload();
+		return qfalse;
+	}
+	return qtrue;
+#else
+	return qfalse;
+#endif
+}
+
+static void Q_to_RT_Camera(RT_Camera* out)
+{
+	vec3_t org;
+	VectorCopy(cg.refdef.vieworg, org);
+	out->origin.x = org[0];
+	out->origin.y = org[1];
+	out->origin.z = org[2];
+	out->forward.x = cg.refdef.viewaxis[0][0];
+	out->forward.y = cg.refdef.viewaxis[0][1];
+	out->forward.z = cg.refdef.viewaxis[0][2];
+	out->right.x   = cg.refdef.viewaxis[1][0];
+	out->right.y   = cg.refdef.viewaxis[1][1];
+	out->right.z   = cg.refdef.viewaxis[1][2];
+	out->up.x      = cg.refdef.viewaxis[2][0];
+	out->up.y      = cg.refdef.viewaxis[2][1];
+	out->up.z      = cg.refdef.viewaxis[2][2];
+	out->fovX = cg.refdef.fov_x;
+	out->fovY = cg.refdef.fov_y;
+	out->znear = 4.0f;
+	out->zfar  = 8192.0f;
+}
+
+static void CG_RT_EmitQuad(const RT_Vert v[4], void* user)
+{
+	qhandle_t shader = (qhandle_t)(intptr_t)user;
+	polyVert_t quad[4];
+	for (int i = 0; i < 4; ++i) {
+		quad[i].xyz[0] = v[i].xyz[0];
+		quad[i].xyz[1] = v[i].xyz[1];
+		quad[i].xyz[2] = v[i].xyz[2];
+		quad[i].st[0] = v[i].st[0];
+		quad[i].st[1] = v[i].st[1];
+		quad[i].modulate[0] = 255;
+		quad[i].modulate[1] = 255;
+		quad[i].modulate[2] = 255;
+		quad[i].modulate[3] = 255;
+	}
+	trap_R_AddPolysToScene(shader, 4, quad, 1);
+}
 
 static qboolean CG_ParseWorldVec3(const char *json, const char *jsonEnd, vec3_t out)
 {
@@ -51,6 +157,7 @@ static qboolean CG_ParseWorldVec3(const char *json, const char *jsonEnd, vec3_t 
 
 void CG_ClearWorldDefinition(void)
 {
+	CG_RT_Unload();
 	memset(&cg.world, 0, sizeof(cg.world));
 }
 
@@ -352,6 +459,18 @@ static void CG_LoadTerrainAssets(void)
 		return;
 	}
 
+	// Try external renderer first
+	if (CG_RT_Load()) {
+		s_rt = pRT_CreateFromHeights(s_heightSamples,
+			cg.world.terrain.heightmapWidth,
+			cg.world.terrain.heightmapHeight,
+			cg.world.terrain.scaleHorizontal,
+			1.0f /* heights already scaled */);
+		if (!s_rt) {
+			CG_Printf(S_COLOR_YELLOW "WARNING: RT_CreateFromHeights failed, falling back to mesh\n");
+		}
+	}
+
 	CG_Printf(S_COLOR_CYAN "DEBUG: Building terrain mesh...\n");
 	CG_BuildTerrainMesh();
 	CG_Printf(S_COLOR_CYAN "DEBUG: Registering terrain textures...\n");
@@ -388,11 +507,18 @@ void CG_AddTerrainToScene(void)
 		CG_Printf("DEBUG: Using terrain baseShader\n");
 	}
 
+	if (s_rt && pRT_SetCamera && pRT_Render) {
+		RT_Camera cam;
+		Q_to_RT_Camera(&cam);
+		pRT_SetCamera(s_rt, &cam);
+		pRT_Render(s_rt, CG_RT_EmitQuad, (void*)(intptr_t)shader);
+		CG_Printf("DEBUG: Renderer DLL path used for terrain\n");
+		return;
+	}
+
 	CG_Printf("DEBUG: About to call trap_R_AddPolysToScene - shader=%d, quadCount=%d\n", 
 		shader, cg.world.terrain.meshQuadCount);
-
 	trap_R_AddPolysToScene(shader, 4, cg.world.terrain.meshVerts, cg.world.terrain.meshQuadCount);
-
 	CG_Printf("DEBUG: trap_R_AddPolysToScene completed successfully\n");
 }
 

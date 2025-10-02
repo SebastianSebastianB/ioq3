@@ -91,6 +91,7 @@ include(missionpack)
 # if(BUILD_MY_MOD)
 include(my_mod)
 # endif()
+include(my_diablo_mod)
 # ----------------------
 
 include(post_configure)
