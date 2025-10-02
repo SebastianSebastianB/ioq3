@@ -250,9 +250,14 @@ static void SV_World_f( void ) {
 				worldName, worldName, worldName);
 			return;
 		}
+		// File found without maps/ prefix - use expanded as-is
+		Com_Printf("Loading world: %s\n", expanded);
+		Q_strncpyz(worldpath, expanded, sizeof(worldpath));
+	} else {
+		// File found with maps/ prefix - use expanded as-is
+		Com_Printf("Loading world: %s\n", expanded);
+		Q_strncpyz(worldpath, expanded, sizeof(worldpath));
 	}
-
-	Com_Printf("Loading world: %s\n", expanded);
 
 	// Force latched values to get set
 	Cvar_Get("g_gametype", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH);
@@ -272,10 +277,8 @@ static void SV_World_f( void ) {
 	Cvar_SetValue("g_doWarmup", 0);
 	Cvar_SetLatched("sv_maxclients", "8");
 
-	// Save the world path (with .world extension)
-	Q_strncpyz(worldpath, expanded, sizeof(worldpath));
-
 	// Start up the world
+	// Pass the full path with .world extension to SV_SpawnServer
 	SV_SpawnServer(worldpath, killBots);
 
 	// Set cheat value
