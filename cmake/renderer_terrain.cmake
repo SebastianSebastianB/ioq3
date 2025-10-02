@@ -12,6 +12,11 @@ set(RENDERER_TERRAIN_SOURCES
 
 set(RENDERER_TERRAIN_BINARY renderer_terrain)
 
+# SHARED library for dynamic loading by game modules (cgame, qagame, ui)
 add_library(${RENDERER_TERRAIN_BINARY} SHARED ${RENDERER_TERRAIN_SOURCES})
-
+target_compile_definitions(${RENDERER_TERRAIN_BINARY} PRIVATE RT_BUILDING_DLL)
 set_output_dirs(${RENDERER_TERRAIN_BINARY} SUBDIRECTORY "my_diablo_output")
+
+# STATIC library for linking into server executable (ioquake3_diablo.exe)
+add_library(renderer_terrain_static STATIC ${RENDERER_TERRAIN_SOURCES})
+target_compile_definitions(renderer_terrain_static PUBLIC RT_STATIC)

@@ -21,7 +21,6 @@ file(GLOB QAGAME_DIABLO_SOURCES
 )
 
 list(REMOVE_ITEM QAGAME_DIABLO_SOURCES
-    "${SOURCE_DIR}/my_diablo_game/g_syscalls.c"
     "${SOURCE_DIR}/my_diablo_game/g_rankings.c"
 )
 
@@ -29,7 +28,7 @@ list(APPEND QAGAME_DIABLO_SOURCES
     ${DIABLO_SHARED_MATH}
     "${SOURCE_DIR}/qcommon/q_shared.c"
     ${DIABLO_BG_SOURCES}
-    "${SOURCE_DIR}/game/g_syscalls.c"
+    "${SOURCE_DIR}/my_diablo_game/g_syscalls.c"
 )
 
 add_library(qagame_diablo SHARED ${QAGAME_DIABLO_SOURCES})

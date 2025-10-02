@@ -230,6 +230,12 @@ typedef enum {
 	// 1.32
 	G_FS_SEEK,
 
+	// Terrain collision system (Diablo Mod)
+	G_RT_GET_HEIGHT_AT,			// ( float worldX, float worldY );
+	G_RT_GET_NORMAL_AT,			// ( float worldX, float worldY, vec3_t normal );
+	G_RT_CHECK_SPHERE_COLLISION,	// ( const vec3_t center, float radius, vec3_t pushOut );
+	G_RT_TRACE_RAY,				// ( const vec3_t start, const vec3_t dir, float maxDist, vec3_t hitPos );
+
 	BOTLIB_SETUP = 200,				// ( void );
 	BOTLIB_SHUTDOWN,				// ( void );
 	BOTLIB_LIBVAR_SET,

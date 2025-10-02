@@ -4,6 +4,8 @@
 #ifdef _WIN32
 #  ifdef RT_BUILDING_DLL
 #    define RT_API __declspec(dllexport)
+#  elif defined(RT_STATIC)
+#    define RT_API  /* Static linkage - no dllimport/dllexport */
 #  else
 #    define RT_API __declspec(dllimport)
 #  endif

@@ -111,7 +111,7 @@ add_executable(${MY_DIABLO_CLIENT_BINARY} ${CLIENT_EXECUTABLE_OPTIONS} ${MY_DIAB
 target_include_directories(     ${MY_DIABLO_CLIENT_BINARY} PRIVATE ${CLIENT_INCLUDE_DIRS})
 target_compile_definitions(     ${MY_DIABLO_CLIENT_BINARY} PRIVATE ${CLIENT_DEFINITIONS})
 target_compile_options(         ${MY_DIABLO_CLIENT_BINARY} PRIVATE ${CLIENT_COMPILE_OPTIONS})
-target_link_libraries(          ${MY_DIABLO_CLIENT_BINARY} PRIVATE ${COMMON_LIBRARIES} ${CLIENT_LIBRARIES})
+target_link_libraries(          ${MY_DIABLO_CLIENT_BINARY} PRIVATE ${COMMON_LIBRARIES} ${CLIENT_LIBRARIES} renderer_terrain_static)
 target_link_options(            ${MY_DIABLO_CLIENT_BINARY} PRIVATE ${CLIENT_LINK_OPTIONS})
 
 # Output to my_diablo_output subdirectory

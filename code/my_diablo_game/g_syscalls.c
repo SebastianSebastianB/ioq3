@@ -41,6 +41,12 @@ int PASSFLOAT( float x ) {
 	return fi.i;
 }
 
+float UNPASSFLOAT( int i ) {
+	floatint_t fi;
+	fi.i = i;
+	return fi.f;
+}
+
 void	trap_Print( const char *text ) {
 	syscall( G_PRINT, text );
 }
@@ -790,3 +796,25 @@ int trap_PC_ReadToken( int handle, pc_token_t *pc_token ) {
 int trap_PC_SourceFileAndLine( int handle, char *filename, int *line ) {
 	return syscall( BOTLIB_PC_SOURCE_FILE_AND_LINE, handle, filename, line );
 }
+
+//
+// Terrain collision system
+//
+float trap_RT_GetHeightAt( float worldX, float worldY ) {
+	int temp;
+	temp = syscall( G_RT_GET_HEIGHT_AT, PASSFLOAT(worldX), PASSFLOAT(worldY) );
+	return UNPASSFLOAT(temp);
+}
+
+void trap_RT_GetNormalAt( float worldX, float worldY, vec3_t normal ) {
+	syscall( G_RT_GET_NORMAL_AT, PASSFLOAT(worldX), PASSFLOAT(worldY), normal );
+}
+
+int trap_RT_CheckSphereCollision( const vec3_t center, float radius, vec3_t pushOut ) {
+	return syscall( G_RT_CHECK_SPHERE_COLLISION, center, PASSFLOAT(radius), pushOut );
+}
+
+int trap_RT_TraceRay( const vec3_t start, const vec3_t dir, float maxDist, vec3_t hitPos ) {
+	return syscall( G_RT_TRACE_RAY, start, dir, PASSFLOAT(maxDist), hitPos );
+}
+

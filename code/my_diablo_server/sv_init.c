@@ -21,6 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include "server.h"
+#include "../renderer_terrain/rt_api.h"
 
 
 /*
@@ -471,6 +472,33 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 	// If so, skip BSP loading since world files don't have collision maps
 	if (strstr(server, ".world") != NULL) {
 		Com_Printf("Loading world definition (no BSP): %s\n", server);
+		
+		// Initialize terrain collision system
+		extern RT_Handle *g_terrainHandle; // Declared in sv_game.c
+		if (g_terrainHandle) {
+			RT_Destroy(g_terrainHandle);
+			g_terrainHandle = NULL;
+		}
+		
+		// TEMPORARY: Create dummy flat terrain (128x128) for testing
+		// TODO: Load from .world file when file loading is implemented
+		int terrainWidth = 128;
+		int terrainHeight = 128;
+		float* heights = (float*)malloc(terrainWidth * terrainHeight * sizeof(float));
+		if (heights) {
+			// Flat terrain at height 0
+			for (int i = 0; i < terrainWidth * terrainHeight; i++) {
+				heights[i] = 0.0f;
+			}
+			g_terrainHandle = RT_CreateFromHeights(heights, terrainWidth, terrainHeight, 32.0f, 16.0f);
+			free(heights);
+		}
+		
+		if (g_terrainHandle) {
+			Com_Printf("  Terrain collision system initialized successfully (flat terrain for testing)\n");
+		} else {
+			Com_Printf("^3WARNING: Failed to initialize terrain collision system\n");
+		}
 		
 		// TEMPORARY WORKAROUND: Load dummy BSP to provide valid collision map structures
 		// The server needs a valid CM for PVS/visibility calculations in SV_SendClientMessages

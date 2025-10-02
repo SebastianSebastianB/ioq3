@@ -849,12 +849,15 @@ void ClientThink_real( gentity_t *ent ) {
 	// set speed
 	client->ps.speed = g_speed.value;
 	
-	// WYMUSZENIE NOCLIP I BRAKU GRAWITACJI DLA DIABLO MOD
+	// TERRAIN COLLISION SYSTEM FOR DIABLO MOD
+	// Normal physics enabled - gravity, walking, jumping on heightmap terrain
 	if (level.usingWorldDefinition) {
-		client->ps.pm_type = PM_NOCLIP;
-		client->ps.gravity = 0;
-		ent->r.contents = 0;
-		ent->clipmask = 0;
+		// Keep normal collision for entities
+		ent->r.contents = CONTENTS_BODY;
+		ent->clipmask = MASK_PLAYERSOLID;
+		
+		// Let gravity work naturally (no override)
+		// Physics system will apply gravity in Pmove
 	}
 
 #ifdef MISSIONPACK
@@ -955,6 +958,41 @@ void ClientThink_real( gentity_t *ent ) {
 #else
 		Pmove (&pm);
 #endif
+
+	// TERRAIN COLLISION FOR DIABLO MOD
+	// Apply heightmap collision after Pmove physics
+	if (level.usingWorldDefinition) {
+		vec3_t playerPos;
+		VectorCopy(ent->client->ps.origin, playerPos);
+		
+		// Player bounding sphere: radius = 16 units (typical player capsule radius)
+		float playerRadius = 16.0f;
+		vec3_t pushOut;
+		
+		// Check collision with terrain heightmap
+		int collided = trap_RT_CheckSphereCollision(playerPos, playerRadius, pushOut);
+		
+		if (collided) {
+			// Player is intersecting terrain - apply push-out correction
+			VectorAdd(ent->client->ps.origin, pushOut, ent->client->ps.origin);
+			
+			// If pushed up significantly, player is standing on ground
+			if (pushOut[2] > 0.1f) {
+				// Set ground entity so player doesn't fall
+				ent->s.groundEntityNum = ENTITYNUM_WORLD;
+				ent->client->ps.groundEntityNum = ENTITYNUM_WORLD;
+				
+				// Zero out downward velocity to prevent bouncing
+				if (ent->client->ps.velocity[2] < 0) {
+					ent->client->ps.velocity[2] = 0;
+				}
+			}
+		} else {
+			// No collision - player is in air
+			ent->s.groundEntityNum = ENTITYNUM_NONE;
+			ent->client->ps.groundEntityNum = ENTITYNUM_NONE;
+		}
+	}
 
 	// save results of pmove
 	if ( ent->client->ps.eventSequence != oldEventSequence ) {

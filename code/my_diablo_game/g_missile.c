@@ -584,6 +584,38 @@ void G_RunMissile( gentity_t *ent ) {
 		// ignore interactions with the missile owner
 		passent = ent->r.ownerNum;
 	}
+	
+	// TERRAIN COLLISION FOR DIABLO MOD
+	// Check terrain collision before regular entity trace
+	if (level.usingWorldDefinition) {
+		vec3_t dir, hitPos;
+		float dist;
+		
+		// Calculate direction from last position to current position
+		VectorSubtract(origin, ent->r.currentOrigin, dir);
+		dist = VectorNormalize(dir);
+		
+		// Raycast against terrain heightmap
+		if (dist > 0.1f && trap_RT_TraceRay(ent->r.currentOrigin, dir, dist, hitPos)) {
+			// Hit terrain! Create fake trace result
+			memset(&tr, 0, sizeof(tr));
+			tr.fraction = 0.0f;
+			tr.allsolid = qfalse;
+			tr.startsolid = qfalse;
+			VectorCopy(hitPos, tr.endpos);
+			tr.entityNum = ENTITYNUM_WORLD;
+			tr.surfaceFlags = 0;
+			
+			// Normal points up from terrain
+			trap_RT_GetNormalAt(hitPos[0], hitPos[1], tr.plane.normal);
+			tr.plane.dist = DotProduct(tr.plane.normal, hitPos);
+			
+			// Call impact handler
+			G_MissileImpact(ent, &tr);
+			return;
+		}
+	}
+	
 	// trace a line from the previous position to the current position
 	trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, ent->clipmask );
 

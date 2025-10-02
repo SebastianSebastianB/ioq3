@@ -957,3 +957,10 @@ int		trap_GeneticParentsAndChildSelection(int numranks, float *ranks, int *paren
 
 void	trap_SnapVector( float *v );
 
+//
+// Terrain Collision API - Professional heightmap-based collision detection
+//
+float	trap_RT_GetHeightAt(float worldX, float worldY);
+void	trap_RT_GetNormalAt(float worldX, float worldY, vec3_t normal);
+int		trap_RT_CheckSphereCollision(const vec3_t center, float radius, vec3_t pushOut);
+int		trap_RT_TraceRay(const vec3_t start, const vec3_t dir, float maxDist, vec3_t hitPos);

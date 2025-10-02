@@ -24,8 +24,19 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "server.h"
 
 #include "../botlib/botlib.h"
+#include "../renderer_terrain/rt_api.h"
 
 botlib_export_t	*botlib_export;
+
+// Global terrain handle for Diablo mod (shared with sv_init.c)
+RT_Handle *g_terrainHandle = NULL;
+
+// Helper macro for float conversion (same as in g_syscalls.c)
+static int PASSFLOAT(float x) {
+	floatint_t fi;
+	fi.f = x;
+	return fi.i;
+}
 
 // these functions must be used instead of pointer arithmetic, because
 // the game allocates gentities with private information after the server shared part
@@ -345,6 +356,65 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 		return FS_GetFileList( VMA(1), VMA(2), VMA(3), args[4] );
 	case G_FS_SEEK:
 		return FS_Seek( args[1], args[2], args[3] );
+
+	// Terrain collision system (Diablo Mod)
+	case G_RT_GET_HEIGHT_AT: {
+		if (!g_terrainHandle) return PASSFLOAT(0.0f);
+		float worldX = VMF(1);
+		float worldY = VMF(2);
+		float height = RT_GetHeightAt(g_terrainHandle, worldX, worldY);
+		return PASSFLOAT(height);
+	}
+	case G_RT_GET_NORMAL_AT: {
+		if (!g_terrainHandle) return 0;
+		float worldX = VMF(1);
+		float worldY = VMF(2);
+		vec3_t *normal = VMA(3);
+		RT_Vec3 result = RT_GetNormalAt(g_terrainHandle, worldX, worldY);
+		(*normal)[0] = result.x;
+		(*normal)[1] = result.y;
+		(*normal)[2] = result.z;
+		return 0;
+	}
+	case G_RT_CHECK_SPHERE_COLLISION: {
+		if (!g_terrainHandle) return 0;
+		vec3_t *center = VMA(1);
+		float radius = VMF(2);
+		vec3_t *pushOut = VMA(3);
+		RT_Vec3 centerVec = {(*center)[0], (*center)[1], (*center)[2]};
+		RT_Vec3 push;
+		int collided = RT_CheckSphereCollision(
+			g_terrainHandle,
+			&centerVec,
+			radius,
+			&push
+		);
+		(*pushOut)[0] = push.x;
+		(*pushOut)[1] = push.y;
+		(*pushOut)[2] = push.z;
+		return collided;
+	}
+	case G_RT_TRACE_RAY: {
+		if (!g_terrainHandle) return 0;
+		vec3_t *start = VMA(1);
+		vec3_t *dir = VMA(2);
+		float maxDist = VMF(3);
+		vec3_t *hitPos = VMA(4);
+		RT_Vec3 startVec = {(*start)[0], (*start)[1], (*start)[2]};
+		RT_Vec3 dirVec = {(*dir)[0], (*dir)[1], (*dir)[2]};
+		RT_Vec3 hit;
+		int didHit = RT_TraceRay(
+			g_terrainHandle,
+			&startVec,
+			&dirVec,
+			maxDist,
+			&hit
+		);
+		(*hitPos)[0] = hit.x;
+		(*hitPos)[1] = hit.y;
+		(*hitPos)[2] = hit.z;
+		return didHit;
+	}
 
 	case G_LOCATE_GAME_DATA:
 		SV_LocateGameData( VMA(1), args[2], args[3], VMA(4), args[5] );
