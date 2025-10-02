@@ -548,7 +548,30 @@ intptr_t CL_CgameSystemCalls( intptr_t *args ) {
 		S_StartBackgroundTrack( VMA(1), VMA(2) );
 		return 0;
 	case CG_R_LOADWORLDMAP:
-		re.LoadWorld( VMA(1) );
+		{
+			const char *mapname = VMA(1);
+			
+			// Check if this is a .world file (heightmap-based terrain)
+			// If so, load dummy BSP for renderer instead
+			if (strstr(mapname, ".world") != NULL) {
+				Com_Printf("CG_R_LOADWORLDMAP: Intercepting .world file, loading dummy BSP for renderer\n");
+				Com_Printf("  Original: %s\n", mapname);
+				
+				// Load q3dm0.bsp as dummy world for renderer
+				// The actual terrain rendering will be done by renderer_terrain.dll
+				if (FS_ReadFile("maps/q3dm0.bsp", NULL) > 0) {
+					re.LoadWorld("maps/q3dm0.bsp");
+					Com_Printf("  Using maps/q3dm0.bsp for renderer\n");
+				} else {
+					Com_Printf("  Warning: Could not find dummy BSP, renderer may fail\n");
+					// Try to load original path anyway (will likely fail)
+					re.LoadWorld(mapname);
+				}
+			} else {
+				// Regular BSP map
+				re.LoadWorld(mapname);
+			}
+		}
 		return 0; 
 	case CG_R_REGISTERMODEL:
 		return re.RegisterModel( VMA(1) );
