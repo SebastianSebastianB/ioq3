@@ -471,7 +471,24 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 	// If so, skip BSP loading since world files don't have collision maps
 	if (strstr(server, ".world") != NULL) {
 		Com_Printf("Loading world definition (no BSP): %s\n", server);
-		checksum = 0; // No BSP checksum for world files
+		
+		// For world maps, we still need to initialize the CM system
+		// Load an empty/minimal BSP to avoid CM_InlineModel errors
+		// This provides dummy collision data that won't be used
+		// (player uses PM_NOCLIP mode in world maps anyway)
+		
+		// Try to load a minimal BSP as a dummy collision map
+		// We'll use q3dm0 if available, otherwise the first available map
+		if (FS_ReadFile("maps/q3dm0.bsp", NULL) > 0) {
+			CM_LoadMap("maps/q3dm0.bsp", qfalse, &checksum);
+			Com_Printf("  Using q3dm0.bsp as dummy collision map\n");
+		} else {
+			// Fallback: just clear the map (may cause issues with inline models)
+			CM_ClearMap();
+			Com_Printf("  Warning: No dummy BSP loaded, some features may not work\n");
+		}
+		
+		checksum = 0; // Reset checksum for world files
 	} else {
 		// Regular BSP map loading
 		CM_LoadMap( va("maps/%s.bsp", server), qfalse, &checksum );

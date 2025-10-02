@@ -84,6 +84,7 @@ include(renderer_gl1)
 include(renderer_gl2)
 include(renderer_terrain)
 include(client)
+include(my_diablo_client)
 include(basegame)
 include(missionpack)
 
