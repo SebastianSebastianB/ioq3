@@ -834,6 +834,8 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 		// Draw skybox first (background) for world maps
 		CG_DrawWorldSkybox();
 		
+		// Add terrain FIRST (as world geometry/background)
+		CG_AddTerrainToScene();
 		
 		CG_AddPacketEntities();			// adter calcViewValues, so predicted player state is correct
 		
@@ -842,8 +844,6 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 		CG_AddParticles ();
 		
 		CG_AddLocalEntities();
-		
-		CG_AddTerrainToScene();
 		
 	}
 	CG_AddViewWeapon( &cg.predictedPlayerState );
