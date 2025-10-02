@@ -23,6 +23,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 // g_public.h -- game module information visible to server
 
+#ifndef __MY_DIABLO_G_PUBLIC_H__
+#define __MY_DIABLO_G_PUBLIC_H__
+
 #define	GAME_API_VERSION	8
 
 // entity->svFlags
@@ -230,11 +233,11 @@ typedef enum {
 	// 1.32
 	G_FS_SEEK,
 
-	// Terrain collision system (Diablo Mod)
-	G_RT_GET_HEIGHT_AT,			// ( float worldX, float worldY );
-	G_RT_GET_NORMAL_AT,			// ( float worldX, float worldY, vec3_t normal );
+	// Terrain collision system (Diablo Mod) - start at 150 to avoid conflicts with TRAP_* (100-114)
+	G_RT_GET_HEIGHT_AT = 150,		// ( float worldX, float worldY );
+	G_RT_GET_NORMAL_AT,				// ( float worldX, float worldY, vec3_t normal );
 	G_RT_CHECK_SPHERE_COLLISION,	// ( const vec3_t center, float radius, vec3_t pushOut );
-	G_RT_TRACE_RAY,				// ( const vec3_t start, const vec3_t dir, float maxDist, vec3_t hitPos );
+	G_RT_TRACE_RAY,					// ( const vec3_t start, const vec3_t dir, float maxDist, vec3_t hitPos );
 
 	BOTLIB_SETUP = 200,				// ( void );
 	BOTLIB_SHUTDOWN,				// ( void );
@@ -434,3 +437,4 @@ typedef enum {
 	BOTAI_START_FRAME				// ( int time );
 } gameExport_t;
 
+#endif // __MY_DIABLO_G_PUBLIC_H__

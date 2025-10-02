@@ -22,6 +22,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // world.c -- world query functions
 
 #include "server.h"
+#include "../renderer_terrain/rt_api.h"
+
+// External global: true if using .world file (no BSP collision)
+extern qboolean g_usingWorldFile;
+extern RT_Handle *g_terrainHandle;
 
 /*
 ================
@@ -526,7 +531,11 @@ static void SV_ClipMoveToEntities( moveclip_t *clip ) {
 	clipHandle_t	clipHandle;
 	float		*origin, *angles;
 
+	Com_Printf("^2[TRACE] SV_ClipMoveToEntities: ENTRY\n");
+	
 	num = SV_AreaEntities( clip->boxmins, clip->boxmaxs, touchlist, MAX_GENTITIES);
+	
+	Com_Printf("^2[TRACE] SV_ClipMoveToEntities: num=%d entities\n", num);
 
 	if ( clip->passEntityNum != ENTITYNUM_NONE ) {
 		passOwnerNum = ( SV_GentityNum( clip->passEntityNum ) )->r.ownerNum;
@@ -539,8 +548,12 @@ static void SV_ClipMoveToEntities( moveclip_t *clip ) {
 
 	for ( i=0 ; i<num ; i++ ) {
 		if ( clip->trace.allsolid ) {
+			Com_Printf("^2[TRACE] SV_ClipMoveToEntities: allsolid, EXIT\n");
 			return;
 		}
+		
+		Com_Printf("^2[TRACE] SV_ClipMoveToEntities: checking entity %d/%d (id=%d)\n", i+1, num, touchlist[i]);
+		
 		touch = SV_GentityNum( touchlist[i] );
 
 		// see if we should ignore this entity
@@ -565,6 +578,8 @@ static void SV_ClipMoveToEntities( moveclip_t *clip ) {
 		// might intersect, so do an exact clip
 		clipHandle = SV_ClipHandleForEntity (touch);
 
+		Com_Printf("^2[TRACE] SV_ClipMoveToEntities: clipHandle=%d\n", clipHandle);
+		
 		origin = touch->r.currentOrigin;
 		angles = touch->r.currentAngles;
 
@@ -573,9 +588,13 @@ static void SV_ClipMoveToEntities( moveclip_t *clip ) {
 			angles = vec3_origin;	// boxes don't rotate
 		}
 
+		Com_Printf("^2[TRACE] SV_ClipMoveToEntities: calling CM_TransformedBoxTrace\n");
+		
 		CM_TransformedBoxTrace ( &trace, (float *)clip->start, (float *)clip->end,
 			(float *)clip->mins, (float *)clip->maxs, clipHandle,  clip->contentmask,
 			origin, angles, clip->capsule);
+		
+		Com_Printf("^2[TRACE] SV_ClipMoveToEntities: CM_TransformedBoxTrace returned, fraction=%.3f\n", trace.fraction);
 
 		if ( trace.allsolid ) {
 			clip->trace.allsolid = qtrue;
@@ -596,6 +615,8 @@ static void SV_ClipMoveToEntities( moveclip_t *clip ) {
 			clip->trace.startsolid |= oldStart;
 		}
 	}
+	
+	Com_Printf("^2[TRACE] SV_ClipMoveToEntities: EXIT normally\n");
 }
 
 
@@ -620,12 +641,182 @@ void SV_Trace( trace_t *results, const vec3_t start, vec3_t mins, vec3_t maxs, c
 
 	Com_Memset ( &clip, 0, sizeof ( moveclip_t ) );
 
-	// clip to world
-	CM_BoxTrace( &clip.trace, start, end, mins, maxs, 0, contentmask, capsule );
-	clip.trace.entityNum = clip.trace.fraction != 1.0 ? ENTITYNUM_WORLD : ENTITYNUM_NONE;
-	if ( clip.trace.fraction == 0 ) {
+	// DIABLO MOD: Use heightmap terrain collision for .world files instead of BSP
+	if ( g_usingWorldFile && g_terrainHandle ) {
+		// Perform heightmap trace instead of BSP trace
+		
+		vec3_t dir;
+		VectorSubtract(end, start, dir);
+		float dist = VectorLength(dir);
+		
+		if (dist > 0.1f) {
+			VectorNormalize(dir);
+			
+			// For downward traces, check if bounding box bottom hits terrain
+			if (dir[2] < -0.1f) {  // Downward trace (Z component negative)
+				float terrainHeight = RT_GetHeightAt(g_terrainHandle, start[0], start[1]);
+				
+				// Calculate bottom of bounding box at start and end positions
+				float startBottom = start[2] + mins[2];  // mins[2] is negative, so this subtracts
+				float endBottom = end[2] + mins[2];
+				
+				// Check if bounding box bottom crosses terrain surface
+				if (startBottom > terrainHeight && endBottom < terrainHeight) {
+					// Crossing terrain! Calculate exact intersection fraction
+					float fractionToGround = (terrainHeight - startBottom) / (endBottom - startBottom);
+					
+					clip.trace.fraction = fractionToGround;
+					clip.trace.entityNum = ENTITYNUM_WORLD;
+					
+					// Set endpos to where bounding box bottom touches terrain
+					clip.trace.endpos[0] = start[0] + dir[0] * fractionToGround * dist;
+					clip.trace.endpos[1] = start[1] + dir[1] * fractionToGround * dist;
+					clip.trace.endpos[2] = terrainHeight - mins[2];  // Position where bottom is at terrain
+					
+					// Set surface normal (up)
+					RT_Vec3 normal = RT_GetNormalAt(g_terrainHandle, start[0], start[1]);
+					clip.trace.plane.normal[0] = normal.x;
+					clip.trace.plane.normal[1] = normal.y;
+					clip.trace.plane.normal[2] = normal.z;
+					clip.trace.plane.dist = DotProduct(clip.trace.plane.normal, clip.trace.endpos);
+					clip.trace.surfaceFlags = 0;
+					clip.trace.contents = CONTENTS_SOLID;
+					
+					goto trace_done;
+				}
+				else if (startBottom < terrainHeight - 0.1f) {
+					// Start is below terrain (with small tolerance) - start solid
+					clip.trace.fraction = 0.0f;
+					clip.trace.allsolid = qtrue;
+					clip.trace.startsolid = qtrue;
+					clip.trace.entityNum = ENTITYNUM_WORLD;
+					VectorCopy(start, clip.trace.endpos);
+					
+					goto trace_done;
+				}
+				else if (startBottom >= terrainHeight - 0.1f && startBottom <= terrainHeight + 2.0f) {
+					// Player is standing ON ground (bottom within small range of terrain)
+					// For ground checks, we need to report we're on solid ground
+					// This tells Pmove: "yes, there is ground under you"
+					
+					// Always report ground collision with fraction 0 (immediate contact)
+					clip.trace.fraction = 0.0f;
+					clip.trace.entityNum = ENTITYNUM_WORLD;
+					VectorCopy(start, clip.trace.endpos);
+					
+					// Set surface normal
+					RT_Vec3 normal = RT_GetNormalAt(g_terrainHandle, start[0], start[1]);
+					clip.trace.plane.normal[0] = normal.x;
+					clip.trace.plane.normal[1] = normal.y;
+					clip.trace.plane.normal[2] = normal.z;
+					clip.trace.plane.dist = DotProduct(clip.trace.plane.normal, clip.trace.endpos);
+					clip.trace.surfaceFlags = 0;
+					clip.trace.contents = CONTENTS_SOLID;
+					
+					// NOT startsolid - player is on TOP of ground, not inside it
+					clip.trace.allsolid = qfalse;
+					clip.trace.startsolid = qfalse;
+					
+					goto trace_done;
+				}
+				else {
+					// Both above terrain - no hit for this short trace
+					clip.trace.fraction = 1.0f;
+					clip.trace.entityNum = ENTITYNUM_NONE;
+					VectorCopy(end, clip.trace.endpos);
+					
+					goto trace_done;
+				}
+			}
+			
+			// For non-downward or complex traces, use raycast
+			RT_Vec3 startVec = {start[0], start[1], start[2]};
+			RT_Vec3 dirVec = {dir[0], dir[1], dir[2]};
+			RT_Vec3 hitPos;
+			
+			int didHit = RT_TraceRay(g_terrainHandle, &startVec, &dirVec, dist, &hitPos);
+			
+			if (didHit) {
+				// Hit terrain! Calculate fraction based on ORIGINAL end point
+				vec3_t hitVec = {hitPos.x, hitPos.y, hitPos.z};
+				vec3_t delta;
+				VectorSubtract(hitVec, start, delta);
+				float hitDist = VectorLength(delta);
+				
+				// Calculate fraction based on original trace distance
+				vec3_t originalDir;
+				VectorSubtract(end, start, originalDir);
+				float originalDist = VectorLength(originalDir);
+				
+				clip.trace.fraction = (originalDist > 0.001f) ? (hitDist / originalDist) : 0.0f;
+				
+				// Clamp fraction to [0, 1] - if we hit terrain within extended trace,
+				// but it was beyond original end point, clamp to 1.0 (reached end)
+				if (clip.trace.fraction > 1.0f) {
+					clip.trace.fraction = 1.0f;
+				}
+				
+				clip.trace.entityNum = ENTITYNUM_WORLD;
+				VectorCopy(hitVec, clip.trace.endpos);
+				
+				// Set surface normal (pointing up from terrain)
+				RT_Vec3 normal = RT_GetNormalAt(g_terrainHandle, hitPos.x, hitPos.y);
+				clip.trace.plane.normal[0] = normal.x;
+				clip.trace.plane.normal[1] = normal.y;
+				clip.trace.plane.normal[2] = normal.z;
+				clip.trace.plane.dist = DotProduct(clip.trace.plane.normal, clip.trace.endpos);
+				clip.trace.surfaceFlags = 0;
+				clip.trace.contents = CONTENTS_SOLID;
+				
+				// If fraction is 0, blocked immediately
+				if (clip.trace.fraction == 0) {
+					clip.trace.allsolid = qtrue;
+					clip.trace.startsolid = qtrue;
+				}
+			} else {
+				// No terrain hit - trace goes through
+				clip.trace.fraction = 1.0;
+				clip.trace.entityNum = ENTITYNUM_NONE;
+				VectorCopy(end, clip.trace.endpos);
+			}
+		} else {
+			// Zero-length trace - just check if start point is inside terrain
+			float terrainHeight = RT_GetHeightAt(g_terrainHandle, start[0], start[1]);
+			if (start[2] <= terrainHeight + 1.0f) {  // +1 for tolerance
+				// Inside terrain
+				clip.trace.fraction = 0.0;
+				clip.trace.entityNum = ENTITYNUM_WORLD;
+				clip.trace.allsolid = qtrue;
+				clip.trace.startsolid = qtrue;
+				VectorCopy(start, clip.trace.endpos);
+			} else {
+				// Above terrain
+				clip.trace.fraction = 1.0;
+				clip.trace.entityNum = ENTITYNUM_NONE;
+				VectorCopy(start, clip.trace.endpos);
+			}
+		}
+		
+	trace_done:
+		// Label for early exit from downward trace check
+		;
+		
+	} else if ( g_usingWorldFile ) {
+		// .world file but no terrain handle - return no collision
+		Com_Memset(&clip.trace, 0, sizeof(clip.trace));
+		clip.trace.fraction = 1.0;
+		clip.trace.entityNum = ENTITYNUM_NONE;
+		VectorCopy( end, clip.trace.endpos );
 		*results = clip.trace;
-		return;		// blocked immediately by the world
+		return;  // CRITICAL: Don't continue to entity checks without proper trace setup
+	} else {
+		// Normal BSP collision for standard .bsp maps
+		CM_BoxTrace( &clip.trace, start, end, mins, maxs, 0, contentmask, capsule );
+		clip.trace.entityNum = clip.trace.fraction != 1.0 ? ENTITYNUM_WORLD : ENTITYNUM_NONE;
+		if ( clip.trace.fraction == 0 ) {
+			*results = clip.trace;
+			return;		// blocked immediately by the world
+		}
 	}
 
 	clip.contentmask = contentmask;
@@ -652,7 +843,9 @@ void SV_Trace( trace_t *results, const vec3_t start, vec3_t mins, vec3_t maxs, c
 	}
 
 	// clip to other solid entities
+	Com_Printf("^5[TRACE] SV_Trace: calling SV_ClipMoveToEntities\n");
 	SV_ClipMoveToEntities ( &clip );
+	Com_Printf("^5[TRACE] SV_Trace: SV_ClipMoveToEntities returned\n");
 
 	*results = clip.trace;
 }

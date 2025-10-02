@@ -764,13 +764,7 @@ void ClientThink_real( gentity_t *ent ) {
 	if (client->pers.connected != CON_CONNECTED) {
 		return;
 	}
-    // Wymuszamy noclip i brak grawitacji dla Diablo mod
-    if (level.usingWorldDefinition) {
-        client->ps.pm_type = PM_NOCLIP;
-        client->ps.gravity = 0;
-        ent->r.contents = 0;
-        ent->clipmask = 0;
-    }
+	
 	// mark the time, so the connection sprite can be removed
 	ucmd = &ent->client->pers.cmd;
 
@@ -844,21 +838,12 @@ void ClientThink_real( gentity_t *ent ) {
 		client->ps.pm_type = PM_NORMAL;
 	}
 
+	// TERRAIN COLLISION: Normal gravity always enabled
+	// Pmove handles ground detection through SV_Trace automatically
 	client->ps.gravity = g_gravity.value;
 
 	// set speed
 	client->ps.speed = g_speed.value;
-	
-	// TERRAIN COLLISION SYSTEM FOR DIABLO MOD
-	// Normal physics enabled - gravity, walking, jumping on heightmap terrain
-	if (level.usingWorldDefinition) {
-		// Keep normal collision for entities
-		ent->r.contents = CONTENTS_BODY;
-		ent->clipmask = MASK_PLAYERSOLID;
-		
-		// Let gravity work naturally (no override)
-		// Physics system will apply gravity in Pmove
-	}
 
 #ifdef MISSIONPACK
 	if( bg_itemlist[client->ps.stats[STAT_PERSISTANT_POWERUP]].giTag == PW_SCOUT ) {
@@ -954,47 +939,45 @@ void ClientThink_real( gentity_t *ent ) {
 				ent->client->ps.pm_type = PM_SPINTERMISSION;
 			}
 		}
+		G_Printf("^6[GAME] ClientThink_real: calling Pmove\n");
 		Pmove (&pm);
+		G_Printf("^6[GAME] ClientThink_real: Pmove returned\n");
 #else
+		G_Printf("^6[GAME] ClientThink_real: calling Pmove\n");
 		Pmove (&pm);
+		G_Printf("^6[GAME] ClientThink_real: Pmove returned\n");
 #endif
 
-	// TERRAIN COLLISION FOR DIABLO MOD
+	// TERRAIN COLLISION FOR DIABLO MOD - TEMPORARILY DISABLED FOR CRASH DEBUG
 	// Apply heightmap collision after Pmove physics
-	if (level.usingWorldDefinition) {
+	// NOTE: Pmove now handles terrain collision through SV_Trace
+	// This code snaps player if they're far from terrain (e.g. at spawn or teleport)
+	if (qfalse && level.usingWorldDefinition && ent->client->ps.stats[STAT_HEALTH] > 0) 
+	{
 		vec3_t playerPos;
 		VectorCopy(ent->client->ps.origin, playerPos);
+		float playerBottomOffset = 24.0f;
+		float terrainHeight = trap_RT_GetHeightAt(playerPos[0], playerPos[1]);
+		float desiredHeight = terrainHeight + playerBottomOffset;
 		
-		// Player bounding sphere: radius = 16 units (typical player capsule radius)
-		float playerRadius = 16.0f;
-		vec3_t pushOut;
-		
-		// Check collision with terrain heightmap
-		int collided = trap_RT_CheckSphereCollision(playerPos, playerRadius, pushOut);
-		
-		if (collided) {
-			// Player is intersecting terrain - apply push-out correction
-			VectorAdd(ent->client->ps.origin, pushOut, ent->client->ps.origin);
-			
-			// If pushed up significantly, player is standing on ground
-			if (pushOut[2] > 0.1f) {
-				// Set ground entity so player doesn't fall
-				ent->s.groundEntityNum = ENTITYNUM_WORLD;
-				ent->client->ps.groundEntityNum = ENTITYNUM_WORLD;
-				
-				// Zero out downward velocity to prevent bouncing
-				if (ent->client->ps.velocity[2] < 0) {
-					ent->client->ps.velocity[2] = 0;
-				}
+		// If player is FAR from terrain (more than 30 units), snap them
+		// This handles spawn, teleport, or falling through map
+		if (fabs(playerPos[2] - desiredHeight) > 30.0f) {
+			static int snapCount = 0;
+			if (snapCount < 3) {
+				G_Printf("^2[TERRAIN] Snap player to terrain: %.1f -> %.1f\n", 
+					playerPos[2], desiredHeight);
+				snapCount++;
 			}
-		} else {
-			// No collision - player is in air
-			ent->s.groundEntityNum = ENTITYNUM_NONE;
-			ent->client->ps.groundEntityNum = ENTITYNUM_NONE;
+			
+			ent->client->ps.origin[2] = desiredHeight;
+			VectorCopy(ent->client->ps.origin, ent->s.pos.trBase);
+			ent->client->ps.velocity[2] = 0;
 		}
 	}
 
 	// save results of pmove
+	G_Printf("^6[GAME] ClientThink_real: saving pmove results\n");
 	if ( ent->client->ps.eventSequence != oldEventSequence ) {
 		ent->eventTime = level.time;
 	}
@@ -1004,6 +987,7 @@ void ClientThink_real( gentity_t *ent ) {
 	else {
 		BG_PlayerStateToEntityState( &ent->client->ps, &ent->s, qtrue );
 	}
+	G_Printf("^6[GAME] ClientThink_real: calling SendPendingPredictableEvents\n");
 	SendPendingPredictableEvents( &ent->client->ps );
 
 	if ( !( ent->client->ps.eFlags & EF_FIRING ) ) {

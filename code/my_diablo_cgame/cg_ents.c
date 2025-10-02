@@ -989,17 +989,25 @@ CG_AddCEntity
 ===============
 */
 static void CG_AddCEntity( centity_t *cent ) {
+	CG_Printf("^7[CENT] CG_AddCEntity: ENTRY (eType=%d)\n", cent->currentState.eType);
+	
 	// event-only entities will have been dealt with already
 	if ( cent->currentState.eType >= ET_EVENTS ) {
+		CG_Printf("^7[CENT] CG_AddCEntity: event-only entity, skipping\n");
 		return;
 	}
 
+	CG_Printf("^7[CENT] CG_AddCEntity: calling CG_CalcEntityLerpPositions\n");
 	// calculate the current origin
 	CG_CalcEntityLerpPositions( cent );
+	CG_Printf("^7[CENT] CG_AddCEntity: CG_CalcEntityLerpPositions returned\n");
 
+	CG_Printf("^7[CENT] CG_AddCEntity: calling CG_EntityEffects\n");
 	// add automatic effects
 	CG_EntityEffects( cent );
+	CG_Printf("^7[CENT] CG_AddCEntity: CG_EntityEffects returned\n");
 
+	CG_Printf("^7[CENT] CG_AddCEntity: switching on eType=%d\n", cent->currentState.eType);
 	switch ( cent->currentState.eType ) {
 	default:
 		CG_Error( "Bad entity type: %i", cent->currentState.eType );
@@ -1009,12 +1017,16 @@ static void CG_AddCEntity( centity_t *cent ) {
 	case ET_TELEPORT_TRIGGER:
 		break;
 	case ET_GENERAL:
+		CG_Printf("^7[CENT] CG_AddCEntity: calling CG_General\n");
 		CG_General( cent );
 		break;
 	case ET_PLAYER:
+		CG_Printf("^7[CENT] CG_AddCEntity: calling CG_Player\n");
 		CG_Player( cent );
+		CG_Printf("^7[CENT] CG_AddCEntity: CG_Player returned\n");
 		break;
 	case ET_ITEM:
+		CG_Printf("^7[CENT] CG_AddCEntity: calling CG_Item\n");
 		CG_Item( cent );
 		break;
 	case ET_MISSILE:
@@ -1052,6 +1064,8 @@ void CG_AddPacketEntities( void ) {
 	centity_t			*cent;
 	playerState_t		*ps;
 
+	CG_Printf("^4[ENT] CG_AddPacketEntities: START\n");
+
 	// set cg.frameInterpolation
 	if ( cg.nextSnap ) {
 		int		delta;
@@ -1067,6 +1081,8 @@ void CG_AddPacketEntities( void ) {
 									// no entities should be marked as interpolating
 	}
 
+	CG_Printf("^4[ENT] Setting auto angles\n");
+	
 	// the auto-rotating items will all have the same axis
 	cg.autoAngles[0] = 0;
 	cg.autoAngles[1] = ( cg.time & 2047 ) * 360 / 2048.0;
@@ -1079,18 +1095,28 @@ void CG_AddPacketEntities( void ) {
 	AnglesToAxis( cg.autoAngles, cg.autoAxis );
 	AnglesToAxis( cg.autoAnglesFast, cg.autoAxisFast );
 
+	CG_Printf("^4[ENT] Converting player state to entity\n");
+	
 	// generate and add the entity from the playerstate
 	ps = &cg.predictedPlayerState;
 	BG_PlayerStateToEntityState( ps, &cg.predictedPlayerEntity.currentState, qfalse );
+	
+	CG_Printf("^4[ENT] Adding predicted player entity\n");
 	CG_AddCEntity( &cg.predictedPlayerEntity );
 
+	CG_Printf("^4[ENT] Calculating entity lerp positions\n");
 	// lerp the non-predicted value for lightning gun origins
 	CG_CalcEntityLerpPositions( &cg_entities[ cg.snap->ps.clientNum ] );
 
+	CG_Printf("^4[ENT] Adding %d entities from snapshot\n", cg.snap->numEntities);
 	// add each entity sent over by the server
 	for ( num = 0 ; num < cg.snap->numEntities ; num++ ) {
 		cent = &cg_entities[ cg.snap->entities[ num ].number ];
+		CG_Printf("^4[ENT] Adding entity %d/%d (number=%d)\n", num+1, cg.snap->numEntities, cg.snap->entities[ num ].number);
 		CG_AddCEntity( cent );
+		CG_Printf("^4[ENT] Entity %d added successfully\n", num+1);
 	}
+	
+	CG_Printf("^4[ENT] CG_AddPacketEntities: END\n");
 }
 

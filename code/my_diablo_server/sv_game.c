@@ -31,6 +31,9 @@ botlib_export_t	*botlib_export;
 // Global terrain handle for Diablo mod (shared with sv_init.c)
 RT_Handle *g_terrainHandle = NULL;
 
+// Global flag: true if using .world file (no BSP collision), false for normal .bsp maps
+qboolean g_usingWorldFile = qfalse;
+
 // Helper macro for float conversion (same as in g_syscalls.c)
 static int PASSFLOAT(float x) {
 	floatint_t fi;
@@ -309,6 +312,12 @@ The module is making a system call
 ====================
 */
 intptr_t SV_GameSystemCalls( intptr_t *args ) {
+	// DIABLO MOD DEBUG: Log trap number to diagnose "Bad game system trap: 46"
+	if (args[0] == 46 || args[0] > 30) {
+	// TEMPORARY: Disable syscall logging - too verbose
+	// Com_Printf("^3[DEBUG] SV_GameSystemCalls: trap number = %d\n", (int)args[0]);
+	}
+	
 	switch( args[0] ) {
 	case G_PRINT:
 		Com_Printf( "%s", (const char*)VMA(1) );
@@ -377,7 +386,9 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 		return 0;
 	}
 	case G_RT_CHECK_SPHERE_COLLISION: {
-		if (!g_terrainHandle) return 0;
+		if (!g_terrainHandle) {
+			return 0;
+		}
 		vec3_t *center = VMA(1);
 		float radius = VMF(2);
 		vec3_t *pushOut = VMA(3);
@@ -392,6 +403,7 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 		(*pushOut)[0] = push.x;
 		(*pushOut)[1] = push.y;
 		(*pushOut)[2] = push.z;
+		
 		return collided;
 	}
 	case G_RT_TRACE_RAY: {

@@ -1173,14 +1173,9 @@ void ClientSpawn(gentity_t *ent) {
 	ent->watertype = 0;
 	ent->flags = 0;
 
-	G_Printf("ClientSpawn: level.usingWorldDefinition = %d\n", level.usingWorldDefinition);
-	if ( level.usingWorldDefinition ) {
-		G_Printf("ClientSpawn: Setting PM_NOCLIP mode for player\n");
-		client->ps.pm_type = PM_NOCLIP;
-		client->ps.gravity = 0;
-		ent->r.contents = 0;
-		ent->clipmask = 0;
-	}
+	// Diablo mod: Use normal walking mode with terrain collision
+	G_Printf("ClientSpawn: Using normal walking mode (PM_NORMAL) with terrain collision\n");
+	client->ps.pm_type = PM_NORMAL;
 	
 	VectorCopy (playerMins, ent->r.mins);
 	VectorCopy (playerMaxs, ent->r.maxs);

@@ -257,17 +257,12 @@ static snapshot_t *CG_ReadNextSnapshot( void ) {
 	qboolean	r;
 	snapshot_t	*dest;
 
-	CG_Printf("DEBUG: CG_ReadNextSnapshot entry, latestSnapshotNum=%d, processedSnapshotNum=%d\n", 
-		cg.latestSnapshotNum, cgs.processedSnapshotNum);
-
 	if ( cg.latestSnapshotNum > cgs.processedSnapshotNum + 1000 ) {
 		CG_Printf( "WARNING: CG_ReadNextSnapshot: way out of range, %i > %i\n", 
 			cg.latestSnapshotNum, cgs.processedSnapshotNum );
 	}
 
 	while ( cgs.processedSnapshotNum < cg.latestSnapshotNum ) {
-		CG_Printf("DEBUG: CG_ReadNextSnapshot loop, processedSnapshotNum=%d, latestSnapshotNum=%d\n", 
-			cgs.processedSnapshotNum, cg.latestSnapshotNum);
 		// decide which of the two slots to load it into
 		if ( cg.snap == &cg.activeSnapshots[0] ) {
 			dest = &cg.activeSnapshots[1];

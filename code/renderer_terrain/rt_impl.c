@@ -270,8 +270,11 @@ int RT_CheckSphereCollision(RT_Handle* h, const RT_Vec3* center, float radius, R
     float terrainHeight = RT_GetHeightAt(h, center->x, center->y);
     float sphereBottom = center->z - radius;
     
-    // If sphere bottom is above terrain, no collision
-    if(sphereBottom > terrainHeight) {
+    // Allow small tolerance for stability (0.5 units above terrain)
+    float tolerance = 0.5f;
+    
+    // If sphere bottom is above terrain (with tolerance), no collision
+    if(sphereBottom > terrainHeight + tolerance) {
         if(pushOut) {
             pushOut->x = 0.0f;
             pushOut->y = 0.0f;
@@ -283,6 +286,10 @@ int RT_CheckSphereCollision(RT_Handle* h, const RT_Vec3* center, float radius, R
     // Collision detected - calculate push-out vector
     if(pushOut) {
         float penetration = terrainHeight - sphereBottom;
+        
+        // Add small upward bias to ensure player stays above terrain
+        penetration += 1.0f; // Push up by 1 extra unit for stability
+        
         RT_Vec3 normal = RT_GetNormalAt(h, center->x, center->y);
         pushOut->x = normal.x * penetration;
         pushOut->y = normal.y * penetration;

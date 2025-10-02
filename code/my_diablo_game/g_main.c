@@ -440,9 +440,13 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	level.usingWorldDefinition = qfalse;
 	level.worldFile[0] = '\0';
 
+	G_Printf("^5[MAIN DEBUG] Checking for .world file...\n");
+	
 	{
 		char mapFile[MAX_QPATH];
 		trap_Cvar_VariableStringBuffer( "mapname", mapFile, sizeof( mapFile ) );
+		
+		G_Printf("^5[MAIN DEBUG] mapname cvar = '%s'\n", mapFile);
 		
 		if ( mapFile[0] && COM_CompareExtension( mapFile, ".world" ) ) {
 			char resolved[MAX_QPATH];
@@ -455,13 +459,18 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 				pathToWorld = resolved;
 			}
 
+			G_Printf("^5[MAIN DEBUG] Loading world definition: '%s'\n", pathToWorld);
+			
 			if ( G_LoadWorldDefinition( pathToWorld ) ) {
-				G_Printf( "World definition loaded: %s\n", pathToWorld );
+				G_Printf( "^2World definition loaded: %s\n", pathToWorld );
 				level.usingWorldDefinition = qtrue;
 				Q_strncpyz( level.worldFile, pathToWorld, sizeof( level.worldFile ) );
+				G_Printf("^2[MAIN DEBUG] level.usingWorldDefinition = TRUE\n");
 			} else {
-				G_Printf( "WARNING: Failed to load world definition: %s\n", pathToWorld );
+				G_Printf( "^1WARNING: Failed to load world definition: %s\n", pathToWorld );
 			}
+		} else {
+			G_Printf("^5[MAIN DEBUG] Not a .world file, using standard BSP map\n");
 		}
 	}
 

@@ -370,8 +370,9 @@ static void CG_BuildTerrainMesh(void)
 	const int width = cg.world.terrain.heightmapWidth;
 	const int height = cg.world.terrain.heightmapHeight;
 	const float step = cg.world.terrain.scaleHorizontal;
-	const float halfWidth = (width - 1) * step * 0.5f;
-	const float halfHeight = (height - 1) * step * 0.5f;
+	// IMPORTANT: Match server terrain coordinate system (starts at 0,0 not centered)
+	// const float halfWidth = (width - 1) * step * 0.5f;
+	// const float halfHeight = (height - 1) * step * 0.5f;
 	int quadIndex = 0;
 
 	if (width < 2 || height < 2)
@@ -392,10 +393,11 @@ static void CG_BuildTerrainMesh(void)
 			int idxTR = (y + 1) * width + (x + 1);
 			int idxTL = (y + 1) * width + x;
 
-			float worldX0 = x * step - halfWidth;
-			float worldX1 = (x + 1) * step - halfWidth;
-			float worldY0 = y * step - halfHeight;
-			float worldY1 = (y + 1) * step - halfHeight;
+			// Use same coordinate system as server: terrain starts at (0,0)
+			float worldX0 = x * step;
+			float worldX1 = (x + 1) * step;
+			float worldY0 = y * step;
+			float worldY1 = (y + 1) * step;
 
 			polyVert_t *vBL = &quad[0];
 			polyVert_t *vBR = &quad[1];
@@ -481,6 +483,9 @@ static void CG_LoadTerrainAssets(void)
 
 void CG_AddTerrainToScene(void)
 {
+	// Terrain rendering re-enabled after fixing CG_PlayerShadow crash
+	// CG_Printf("^3CG_AddTerrainToScene: Rendering terrain\n");
+	
 	qhandle_t shader;
 
 	

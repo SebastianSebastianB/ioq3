@@ -468,12 +468,8 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 	sv.checksumFeed = ( ((unsigned int)rand() << 16) ^ (unsigned int)rand() ) ^ Com_Milliseconds();
 	FS_Restart( sv.checksumFeed );
 
-	// Check if this is a .world file (heightmap-based terrain)
-	// If so, skip BSP loading since world files don't have collision maps
-	if (strstr(server, ".world") != NULL) {
-		Com_Printf("Loading world definition (no BSP): %s\n", server);
-		
-		// Initialize terrain collision system
+	// DIABLO MOD: Initialize terrain collision system for ALL maps (BSP and .world)
+	{
 		extern RT_Handle *g_terrainHandle; // Declared in sv_game.c
 		if (g_terrainHandle) {
 			RT_Destroy(g_terrainHandle);
@@ -482,23 +478,35 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 		
 		// TEMPORARY: Create dummy flat terrain (128x128) for testing
 		// TODO: Load from .world file when file loading is implemented
+		Com_Printf("^2Initializing terrain collision system...\n");
 		int terrainWidth = 128;
 		int terrainHeight = 128;
 		float* heights = (float*)malloc(terrainWidth * terrainHeight * sizeof(float));
 		if (heights) {
-			// Flat terrain at height 0
+			// Flat terrain at height 50 units (to catch falling players)
 			for (int i = 0; i < terrainWidth * terrainHeight; i++) {
-				heights[i] = 0.0f;
+				heights[i] = 50.0f / 16.0f; // scaleV=16.0, so 50/16 = 3.125 in heightmap units
 			}
 			g_terrainHandle = RT_CreateFromHeights(heights, terrainWidth, terrainHeight, 32.0f, 16.0f);
 			free(heights);
-		}
-		
-		if (g_terrainHandle) {
-			Com_Printf("  Terrain collision system initialized successfully (flat terrain for testing)\n");
+			
+			if (g_terrainHandle) {
+				Com_Printf("^2SUCCESS: Terrain collision system initialized (128x128 flat terrain at height 50)\n");
+			} else {
+				Com_Printf("^1ERROR: RT_CreateFromHeights failed!\n");
+			}
 		} else {
-			Com_Printf("^3WARNING: Failed to initialize terrain collision system\n");
+			Com_Printf("^1ERROR: Failed to allocate memory for terrain heightmap!\n");
 		}
+	}
+
+	// Check if this is a .world file (heightmap-based terrain)
+	// If so, skip BSP loading since world files don't have collision maps
+	if (strstr(server, ".world") != NULL) {
+		extern qboolean g_usingWorldFile; // Declared in sv_game.c
+		g_usingWorldFile = qtrue; // Disable BSP collision for .world files
+		
+		Com_Printf("Loading world definition (no BSP): %s\n", server);
 		
 		// TEMPORARY WORKAROUND: Load dummy BSP to provide valid collision map structures
 		// The server needs a valid CM for PVS/visibility calculations in SV_SendClientMessages
@@ -506,10 +514,13 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 		Com_Printf("  Loading dummy BSP (maps/q3dm0.bsp) for collision map structures...\n");
 		CM_LoadMap("maps/q3dm0.bsp", qfalse, &checksum);
 		Com_Printf("  Dummy BSP loaded successfully (checksum=%i)\n", checksum);
-		Com_Printf("  NOTE: Using q3dm0 collision temporarily - heightmap collision not yet implemented\n");
+		Com_Printf("  NOTE: Using q3dm0 for PVS only - BSP collision DISABLED for .world file\n");
 		
 		checksum = 0; // Reset checksum for world files
 	} else {
+		extern qboolean g_usingWorldFile; // Declared in sv_game.c
+		g_usingWorldFile = qfalse; // Enable BSP collision for normal .bsp maps
+		
 		// Regular BSP map loading
 		CM_LoadMap( va("maps/%s.bsp", server), qfalse, &checksum );
 	}
