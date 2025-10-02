@@ -472,11 +472,13 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 	if (strstr(server, ".world") != NULL) {
 		Com_Printf("Loading world definition (no BSP): %s\n", server);
 		
-		// Clear collision map system - world maps will use their own heightmap-based collision
-		// This is the professional solution - no dummy BSP needed
-		CM_ClearMap();
-		Com_Printf("  Initialized empty collision map for world terrain\n");
-		Com_Printf("  World collision will be handled by heightmap system\n");
+		// TEMPORARY WORKAROUND: Load dummy BSP to provide valid collision map structures
+		// The server needs a valid CM for PVS/visibility calculations in SV_SendClientMessages
+		// TODO: Implement proper heightmap-based collision system
+		Com_Printf("  Loading dummy BSP (maps/q3dm0.bsp) for collision map structures...\n");
+		CM_LoadMap("maps/q3dm0.bsp", qfalse, &checksum);
+		Com_Printf("  Dummy BSP loaded successfully (checksum=%i)\n", checksum);
+		Com_Printf("  NOTE: Using q3dm0 collision temporarily - heightmap collision not yet implemented\n");
 		
 		checksum = 0; // Reset checksum for world files
 	} else {

@@ -1187,14 +1187,20 @@ void SV_Frame( int msec ) {
 		time_game = Sys_Milliseconds () - startTime;
 	}
 
+	Com_Printf("DEBUG SV_Frame: BEFORE SV_CheckTimeouts\n");
 	// check timeouts
 	SV_CheckTimeouts();
+	Com_Printf("DEBUG SV_Frame: AFTER SV_CheckTimeouts\n");
 
+	Com_Printf("DEBUG SV_Frame: BEFORE SV_SendClientMessages\n");
 	// send messages back to the clients
 	SV_SendClientMessages();
+	Com_Printf("DEBUG SV_Frame: AFTER SV_SendClientMessages\n");
 
+	Com_Printf("DEBUG SV_Frame: BEFORE SV_MasterHeartbeat\n");
 	// send a heartbeat to the master if needed
 	SV_MasterHeartbeat(HEARTBEAT_FOR_MASTER);
+	Com_Printf("DEBUG SV_Frame: AFTER SV_MasterHeartbeat - EXIT\n");
 }
 
 /*

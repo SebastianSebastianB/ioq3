@@ -1890,6 +1890,14 @@ void G_RunFrame( int levelTime ) {
 			continue;
 		}
 
+		// TEMPORARY WORKAROUND: Skip bodyque entities due to memory corruption with .world maps
+		if (ent->classname && !Q_stricmp(ent->classname, "bodyque")) {
+			if (i % 50 == 0 || i == 70) {
+				G_Printf("DEBUG G_RunFrame: SKIPPING entity %d (bodyque) - WORKAROUND for .world maps\n", i);
+			}
+			continue;
+		}
+
 		if (i == 70) {
 			G_Printf("DEBUG G_RunFrame: Processing entity 70, eType=%d\n", ent->s.eType);
 		}
@@ -1929,13 +1937,32 @@ void G_RunFrame( int levelTime ) {
 		if (i == 70) {
 			G_Printf("DEBUG G_RunFrame: entity 70 - BEFORE linked check, ent=%p, &ent->r=%p\n", (void*)ent, (void*)&ent->r);
 			G_Printf("DEBUG G_RunFrame: entity 70 - classname='%s'\n", ent->classname ? ent->classname : "NULL");
+			G_Printf("DEBUG G_RunFrame: entity 70 - SKIPPING linked check (WORKAROUND)\n");
+			// TEMPORARY WORKAROUND: Skip this check for bodyque
+			// continue;
+		} else {
+			if ( !ent->r.linked && ent->neverFree ) {
+				continue;
+			}
 		}
 		
-		if ( !ent->r.linked && ent->neverFree ) {
-			continue;
+		if (i == 70 || i == 71) {
+			G_Printf("DEBUG G_RunFrame: entity %d - AFTER if-else block\n", i);
+		}
+
+		if (i == 70) {
+			trap_Print("DEBUG: entity 70 - TEST POINT A\n");
+		}
+		
+		if (i == 70) {
+			trap_Print("DEBUG: entity 70 - TEST POINT B\n");
 		}
 
 		if (i == 70) G_Printf("DEBUG G_RunFrame: entity 70 - after linked check\n");
+
+		if (i == 70) {
+			trap_Print("DEBUG: entity 70 - BEFORE eType check\n");
+		}
 
 		if ( ent->s.eType == ET_MISSILE ) {
 			if (i == 70) G_Printf("DEBUG G_RunFrame: entity 70 - is MISSILE\n");
