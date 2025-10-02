@@ -182,8 +182,6 @@ void Cbuf_Execute (void)
 	qboolean in_star_comment = qfalse;
 	qboolean in_slash_comment = qfalse;
 	
-	Com_Printf("DEBUG Cbuf_Execute: ENTER, cmd_text.cursize=%d\n", cmd_text.cursize);
-	
 	while (cmd_text.cursize)
 	{
 		if ( cmd_wait > 0 ) {
@@ -764,8 +762,6 @@ A complete command line has been parsed, so try to execute it
 */
 void	Cmd_ExecuteString( const char *text ) {	
 	cmd_function_t	*cmd, **prev;
-
-	Com_Printf("DEBUG Cmd_ExecuteString: '%s'\n", text);
 
 	// execute the command line
 	Cmd_TokenizeString( text );		

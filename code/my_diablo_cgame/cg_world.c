@@ -447,14 +447,14 @@ static void CG_LoadTerrainAssets(void)
 {
 	if (!cg.world.terrain.enabled)
 	{
-		CG_Printf(S_COLOR_CYAN "DEBUG: Terrain not enabled, skipping asset loading\n");
+		
 		return;
 	}
 
-	CG_Printf(S_COLOR_CYAN "DEBUG: Loading terrain heightmap...\n");
+	
 	if (!CG_LoadTerrainHeightmap())
 	{
-		CG_Printf(S_COLOR_CYAN "DEBUG: Failed to load heightmap, disabling terrain\n");
+		
 		cg.world.terrain.enabled = qfalse;
 		return;
 	}
@@ -471,19 +471,19 @@ static void CG_LoadTerrainAssets(void)
 		}
 	}
 
-	CG_Printf(S_COLOR_CYAN "DEBUG: Building terrain mesh...\n");
+	
 	CG_BuildTerrainMesh();
-	CG_Printf(S_COLOR_CYAN "DEBUG: Registering terrain textures...\n");
+	
 	CG_RegisterTerrainTextures();
 	cg.world.terrain.resourcesLoaded = (cg.world.terrain.meshQuadCount > 0);
-	CG_Printf(S_COLOR_CYAN "DEBUG: Terrain assets loaded, resourcesLoaded=%d\n", cg.world.terrain.resourcesLoaded);
+	
 }
 
 void CG_AddTerrainToScene(void)
 {
 	qhandle_t shader;
 
-	CG_Printf("DEBUG: CG_AddTerrainToScene entry\n");
+	
 
 	if (!cg.world.active || !cg.world.terrain.resourcesLoaded || cg.world.terrain.meshQuadCount <= 0)
 	{
@@ -494,7 +494,7 @@ void CG_AddTerrainToScene(void)
 
 	if (!cg.world.terrain.meshVerts)
 	{
-		CG_Printf("DEBUG: Early return - meshVerts is NULL\n");
+		
 		return;
 	}
 
@@ -502,9 +502,9 @@ void CG_AddTerrainToScene(void)
 	if (!shader)
 	{
 		shader = cgs.media.whiteShader;
-		CG_Printf("DEBUG: Using fallback whiteShader\n");
+		
 	} else {
-		CG_Printf("DEBUG: Using terrain baseShader\n");
+		
 	}
 
 	if (s_rt && pRT_SetCamera && pRT_Render) {
@@ -512,14 +512,14 @@ void CG_AddTerrainToScene(void)
 		Q_to_RT_Camera(&cam);
 		pRT_SetCamera(s_rt, &cam);
 		pRT_Render(s_rt, CG_RT_EmitQuad, (void*)(intptr_t)shader);
-		CG_Printf("DEBUG: Renderer DLL path used for terrain\n");
+		
 		return;
 	}
 
 	CG_Printf("DEBUG: About to call trap_R_AddPolysToScene - shader=%d, quadCount=%d\n", 
 		shader, cg.world.terrain.meshQuadCount);
 	trap_R_AddPolysToScene(shader, 4, cg.world.terrain.meshVerts, cg.world.terrain.meshQuadCount);
-	CG_Printf("DEBUG: trap_R_AddPolysToScene completed successfully\n");
+	
 }
 
 qboolean CG_LoadWorldDefinition(const char *mapName)
@@ -596,9 +596,9 @@ qboolean CG_LoadWorldDefinition(const char *mapName)
 		Q_strncpyz(cg.world.worldName, cg.world.fileName, sizeof(cg.world.worldName));
 	}
 
-	CG_Printf(S_COLOR_CYAN "DEBUG: About to load terrain assets, terrain.enabled=%d\n", cg.world.terrain.enabled);
+	
 	CG_LoadTerrainAssets();
-	CG_Printf(S_COLOR_CYAN "DEBUG: Finished loading terrain assets\n");
+	
 
 	cg.world.active = qtrue;
 

@@ -693,7 +693,7 @@ static int CG_CalcViewValues( void ) {
 	// This prevents "R_RenderScene: NULL worldmodel" crash
 	if ( cg.world.terrain.enabled ) {
 		cg.refdef.rdflags |= RDF_NOWORLDMODEL;
-		CG_Printf("DEBUG: Set RDF_NOWORLDMODEL for terrain map\n");
+		
 	}
 
 	// field of view
@@ -768,7 +768,7 @@ Generates and draws a game scene and status information at the given time.
 void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demoPlayback ) {
 	int		inwater;
 
-	CG_Printf("DEBUG: CG_DrawActiveFrame entry, serverTime=%d\n", serverTime);
+	
 	cg.time = serverTime;
 	cg.demoPlayback = demoPlayback;
 
@@ -777,13 +777,13 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 
 	// if we are only updating the screen as a loading
 	// pacifier, don't even try to read snapshots
-	CG_Printf("DEBUG: Checking infoScreenText[0]=%d\n", (int)cg.infoScreenText[0]);
+
 	if ( cg.infoScreenText[0] != 0 ) {
-		CG_Printf("DEBUG: Drawing information screen, returning early\n");
+		
 		CG_DrawInformation();
 		return;
 	}
-	CG_Printf("DEBUG: Passed infoScreenText check, continuing\n");
+	
 
 	// any looped sounds will be respecified as entities
 	// are added to the render list
@@ -797,16 +797,16 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 
 	// if we haven't received any snapshots yet, all
 	// we can draw is the information screen
-	CG_Printf("DEBUG: Checking snapshots, cg.snap=%p\n", cg.snap);
+	
 	if (cg.snap) {
-		CG_Printf("DEBUG: cg.snap->snapFlags=%d, SNAPFLAG_NOT_ACTIVE=%d\n", cg.snap->snapFlags, SNAPFLAG_NOT_ACTIVE);
+		
 	}
 	if ( !cg.snap || ( cg.snap->snapFlags & SNAPFLAG_NOT_ACTIVE ) ) {
-		CG_Printf("DEBUG: No valid snapshots, drawing information screen\n");
+		
 		CG_DrawInformation();
 		return;
 	}
-	CG_Printf("DEBUG: Valid snapshots found, continuing with render\n");
+	
 
 	// let the client system know what our weapon and zoom settings are
 	trap_SetUserCmdValue( cg.weaponSelect, cg.zoomSensitivity );
@@ -834,17 +834,17 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 		// Draw skybox first (background) for world maps
 		CG_DrawWorldSkybox();
 		
-		CG_Printf("DEBUG: Before CG_AddPacketEntities\n");
+		
 		CG_AddPacketEntities();			// adter calcViewValues, so predicted player state is correct
-		CG_Printf("DEBUG: Before CG_AddMarks\n");
+		
 		CG_AddMarks();
-		CG_Printf("DEBUG: Before CG_AddParticles\n");
+		
 		CG_AddParticles ();
-		CG_Printf("DEBUG: Before CG_AddLocalEntities\n");
+		
 		CG_AddLocalEntities();
-		CG_Printf("DEBUG: Before CG_AddTerrainToScene\n");
+		
 		CG_AddTerrainToScene();
-		CG_Printf("DEBUG: After CG_AddTerrainToScene\n");
+		
 	}
 	CG_AddViewWeapon( &cg.predictedPlayerState );
 

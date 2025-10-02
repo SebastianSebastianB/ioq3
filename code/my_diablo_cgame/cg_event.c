@@ -1061,7 +1061,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 	case EV_MISSILE_MISS_POISON:
 		CG_Printf("SUCCESS! EV_MISSILE_MISS_POISON case executed! event=%d, EV_MISSILE_MISS_POISON=%d\n", event, EV_MISSILE_MISS_POISON);
 		DEBUGNAME("EV_MISSILE_MISS_POISON");
-		CG_Printf("POISON EVENT DEBUG: es->weapon = %d, calling CG_MissileHitWall_Poison\n", es->weapon);
+		
 		ByteToDir( es->eventParm, dir );
 		CG_MissileHitWall_Poison( es->weapon, 0, position, dir, IMPACTSOUND_DEFAULT );
 		CG_Printf("CG_MissileHitWall_Poison completed!\n");
@@ -1322,7 +1322,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 
 	default:
 		DEBUGNAME("UNKNOWN");
-		CG_Printf("DEBUG: Unknown event %d, EV_MISSILE_MISS_POISON=%d\n", event, EV_MISSILE_MISS_POISON);
+		
 		if (event == 83) {
 			CG_Printf("CRITICAL: Event 83 fell through to default case! EV_MISSILE_MISS_POISON should be 83!\n");
 			CG_Printf("FALLBACK: Handling event 83 as poison grenade explosion in default case\n");

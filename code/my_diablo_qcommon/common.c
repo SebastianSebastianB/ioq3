@@ -2212,7 +2212,6 @@ int Com_EventLoop( void ) {
 				}
 			}
 
-			Com_Printf("DEBUG Com_EventLoop: RETURN ev.evTime=%d\n", ev.evTime);
 			return ev.evTime;
 		}
 
@@ -3166,22 +3165,16 @@ void Com_Frame( void ) {
 	
 	msec = com_frameTime - lastTime;
 
-	Com_Printf("DEBUG Com_Frame: BEFORE Cbuf_Execute, msec=%d\n", msec);
 	Cbuf_Execute ();
-	Com_Printf("DEBUG Com_Frame: AFTER Cbuf_Execute\n");
 
-	Com_Printf("DEBUG Com_Frame: BEFORE com_altivec check\n");
 	if (com_altivec->modified)
 	{
 		Com_DetectAltivec();
 		com_altivec->modified = qfalse;
 	}
-	Com_Printf("DEBUG Com_Frame: AFTER com_altivec check\n");
 
 	// mess with msec if needed
-	Com_Printf("DEBUG Com_Frame: BEFORE Com_ModifyMsec\n");
 	msec = Com_ModifyMsec(msec);
-	Com_Printf("DEBUG Com_Frame: AFTER Com_ModifyMsec, msec=%d\n", msec);
 
 	//
 	// server side
@@ -3190,9 +3183,7 @@ void Com_Frame( void ) {
 		timeBeforeServer = Sys_Milliseconds ();
 	}
 
-	Com_Printf("DEBUG Com_Frame: BEFORE SV_Frame, msec=%d\n", msec);
 	SV_Frame( msec );
-	Com_Printf("DEBUG Com_Frame: AFTER SV_Frame\n");
 
 	// if "dedicated" has been modified, start up
 	// or shut down the client system.
