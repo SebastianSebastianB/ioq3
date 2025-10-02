@@ -169,3 +169,166 @@ void RT_Render(RT_Handle* t, RT_EmitQuadFn emit, void* user){
         ty += 1;
     }
 }
+
+// =============================================================================
+// COLLISION IMPLEMENTATION - Professional heightmap-based collision
+// =============================================================================
+
+// Helper: Clamp grid coordinates to valid range
+static void clampGridCoords(RT_Handle* h, int* gx, int* gy) {
+    if(*gx < 0) *gx = 0;
+    if(*gy < 0) *gy = 0;
+    if(*gx >= h->width) *gx = h->width - 1;
+    if(*gy >= h->height) *gy = h->height - 1;
+}
+
+// Helper: World to grid coordinates
+static void worldToGrid(RT_Handle* h, float wx, float wy, int* gx, int* gy) {
+    *gx = (int)(wx / h->scaleH);
+    *gy = (int)(wy / h->scaleH);
+    clampGridCoords(h, gx, gy);
+}
+
+// Get terrain height at world position with bilinear interpolation
+float RT_GetHeightAt(RT_Handle* h, float worldX, float worldY) {
+    if(!h) return 0.0f;
+    
+    // Convert world coords to grid space (continuous)
+    float gx = worldX / h->scaleH;
+    float gy = worldY / h->scaleH;
+    
+    // Get integer grid coordinates
+    int x0 = (int)floorf(gx);
+    int y0 = (int)floorf(gy);
+    int x1 = x0 + 1;
+    int y1 = y0 + 1;
+    
+    // Clamp to valid range
+    if(x0 < 0) x0 = 0;
+    if(y0 < 0) y0 = 0;
+    if(x1 >= h->width) x1 = h->width - 1;
+    if(y1 >= h->height) y1 = h->height - 1;
+    if(x0 >= h->width) x0 = h->width - 1;
+    if(y0 >= h->height) y0 = h->height - 1;
+    
+    // Get fractional part for interpolation
+    float fx = gx - floorf(gx);
+    float fy = gy - floorf(gy);
+    
+    // Sample 4 heightmap corners
+    float h00 = h->h[y0 * h->width + x0] * h->scaleV;
+    float h10 = h->h[y0 * h->width + x1] * h->scaleV;
+    float h01 = h->h[y1 * h->width + x0] * h->scaleV;
+    float h11 = h->h[y1 * h->width + x1] * h->scaleV;
+    
+    // Bilinear interpolation
+    float h0 = h00 * (1.0f - fx) + h10 * fx;
+    float h1 = h01 * (1.0f - fx) + h11 * fx;
+    float height = h0 * (1.0f - fy) + h1 * fy;
+    
+    return height;
+}
+
+// Get terrain normal at world position (for surface alignment)
+RT_Vec3 RT_GetNormalAt(RT_Handle* h, float worldX, float worldY) {
+    RT_Vec3 normal = {0.0f, 0.0f, 1.0f}; // Default up
+    if(!h) return normal;
+    
+    // Sample height at center and neighbors (using small offset)
+    float offset = h->scaleH; // One grid cell
+    float hC = RT_GetHeightAt(h, worldX, worldY);
+    float hL = RT_GetHeightAt(h, worldX - offset, worldY);
+    float hR = RT_GetHeightAt(h, worldX + offset, worldY);
+    float hD = RT_GetHeightAt(h, worldX, worldY - offset);
+    float hU = RT_GetHeightAt(h, worldX, worldY + offset);
+    
+    // Calculate tangent vectors
+    RT_Vec3 tangentX = {2.0f * offset, 0.0f, hR - hL};
+    RT_Vec3 tangentY = {0.0f, 2.0f * offset, hU - hD};
+    
+    // Cross product for normal
+    normal.x = tangentX.y * tangentY.z - tangentX.z * tangentY.y;
+    normal.y = tangentX.z * tangentY.x - tangentX.x * tangentY.z;
+    normal.z = tangentX.x * tangentY.y - tangentX.y * tangentY.x;
+    
+    // Normalize
+    float len = sqrtf(normal.x*normal.x + normal.y*normal.y + normal.z*normal.z);
+    if(len > 0.001f) {
+        normal.x /= len;
+        normal.y /= len;
+        normal.z /= len;
+    }
+    
+    return normal;
+}
+
+// Check sphere collision with terrain (for player/object collision)
+int RT_CheckSphereCollision(RT_Handle* h, const RT_Vec3* center, float radius, RT_Vec3* pushOut) {
+    if(!h || !center) return 0;
+    
+    // Check height at sphere center
+    float terrainHeight = RT_GetHeightAt(h, center->x, center->y);
+    float sphereBottom = center->z - radius;
+    
+    // If sphere bottom is above terrain, no collision
+    if(sphereBottom > terrainHeight) {
+        if(pushOut) {
+            pushOut->x = 0.0f;
+            pushOut->y = 0.0f;
+            pushOut->z = 0.0f;
+        }
+        return 0;
+    }
+    
+    // Collision detected - calculate push-out vector
+    if(pushOut) {
+        float penetration = terrainHeight - sphereBottom;
+        RT_Vec3 normal = RT_GetNormalAt(h, center->x, center->y);
+        pushOut->x = normal.x * penetration;
+        pushOut->y = normal.y * penetration;
+        pushOut->z = normal.z * penetration;
+    }
+    
+    return 1;
+}
+
+// Ray-terrain intersection using DDA (Digital Differential Analyzer)
+int RT_TraceRay(RT_Handle* h, const RT_Vec3* start, const RT_Vec3* dir, float maxDist, RT_Vec3* hitPos) {
+    if(!h || !start || !dir) return 0;
+    
+    // DDA parameters
+    float stepSize = h->scaleH * 0.5f; // Half grid cell for accuracy
+    int maxSteps = (int)(maxDist / stepSize) + 1;
+    
+    RT_Vec3 pos = *start;
+    RT_Vec3 step = {dir->x * stepSize, dir->y * stepSize, dir->z * stepSize};
+    
+    for(int i = 0; i < maxSteps; i++) {
+        // Get terrain height at current ray position
+        float terrainHeight = RT_GetHeightAt(h, pos.x, pos.y);
+        
+        // Check if ray went below terrain
+        if(pos.z <= terrainHeight) {
+            if(hitPos) {
+                // Refine hit position (simple linear interpolation)
+                *hitPos = pos;
+                hitPos->z = terrainHeight;
+            }
+            return 1;
+        }
+        
+        // Advance ray
+        pos.x += step.x;
+        pos.y += step.y;
+        pos.z += step.z;
+        
+        // Check if ray left terrain bounds
+        if(pos.x < 0 || pos.y < 0 || 
+           pos.x >= (h->width-1) * h->scaleH || 
+           pos.y >= (h->height-1) * h->scaleH) {
+            break;
+        }
+    }
+    
+    return 0; // No hit
+}
