@@ -250,14 +250,13 @@ static void SV_World_f( void ) {
 				worldName, worldName, worldName);
 			return;
 		}
-		// File found without maps/ prefix - use expanded as-is
-		Com_Printf("Loading world: %s\n", expanded);
-		Q_strncpyz(worldpath, expanded, sizeof(worldpath));
-	} else {
-		// File found with maps/ prefix - use expanded as-is
-		Com_Printf("Loading world: %s\n", expanded);
-		Q_strncpyz(worldpath, expanded, sizeof(worldpath));
 	}
+	
+	// Build the world path: just worldName + .world extension
+	// DO NOT include "maps/" prefix - SV_SpawnServer and other engine code will add it automatically
+	// (Same as SV_Map_f which passes just "mapname" without "maps/" or ".bsp")
+	Com_sprintf(worldpath, sizeof(worldpath), "%s.world", worldName);
+	Com_Printf("Loading world: %s\n", worldpath);
 
 	// Force latched values to get set
 	Cvar_Get("g_gametype", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH);
@@ -278,7 +277,8 @@ static void SV_World_f( void ) {
 	Cvar_SetLatched("sv_maxclients", "8");
 
 	// Start up the world
-	// Pass the full path with .world extension to SV_SpawnServer
+	// Pass just the filename with .world extension (no maps/ prefix)
+	// Engine code will add "maps/" automatically when needed
 	SV_SpawnServer(worldpath, killBots);
 
 	// Set cheat value
