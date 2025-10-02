@@ -1173,7 +1173,9 @@ void ClientSpawn(gentity_t *ent) {
 	ent->watertype = 0;
 	ent->flags = 0;
 
+	G_Printf("ClientSpawn: level.usingWorldDefinition = %d\n", level.usingWorldDefinition);
 	if ( level.usingWorldDefinition ) {
+		G_Printf("ClientSpawn: Setting PM_NOCLIP mode for player\n");
 		client->ps.pm_type = PM_NOCLIP;
 		client->ps.gravity = 0;
 		ent->r.contents = 0;

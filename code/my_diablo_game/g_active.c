@@ -764,6 +764,13 @@ void ClientThink_real( gentity_t *ent ) {
 	if (client->pers.connected != CON_CONNECTED) {
 		return;
 	}
+    // Wymuszamy noclip i brak grawitacji dla Diablo mod
+    if (level.usingWorldDefinition) {
+        client->ps.pm_type = PM_NOCLIP;
+        client->ps.gravity = 0;
+        ent->r.contents = 0;
+        ent->clipmask = 0;
+    }
 	// mark the time, so the connection sprite can be removed
 	ucmd = &ent->client->pers.cmd;
 
@@ -841,6 +848,14 @@ void ClientThink_real( gentity_t *ent ) {
 
 	// set speed
 	client->ps.speed = g_speed.value;
+	
+	// WYMUSZENIE NOCLIP I BRAKU GRAWITACJI DLA DIABLO MOD
+	if (level.usingWorldDefinition) {
+		client->ps.pm_type = PM_NOCLIP;
+		client->ps.gravity = 0;
+		ent->r.contents = 0;
+		ent->clipmask = 0;
+	}
 
 #ifdef MISSIONPACK
 	if( bg_itemlist[client->ps.stats[STAT_PERSISTANT_POWERUP]].giTag == PW_SCOUT ) {
