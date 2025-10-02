@@ -78,10 +78,39 @@ static void emitQuadRT(RT_Handle* t, int x, int y, int step, RT_EmitQuadFn emit,
     if(x1>=t->width||y1>=t->height) return;
     RT_Vert v[4];
     int idx;
-    idx = y*t->width + x;    v[0].xyz[0]=x*t->scaleH; v[0].xyz[1]=y*t->scaleH; v[0].xyz[2]=t->h[idx]*t->scaleV; v[0].st[0]=0; v[0].st[1]=0;
-    idx = y*t->width + x1;   v[1].xyz[0]=x1*t->scaleH;v[1].xyz[1]=y*t->scaleH; v[1].xyz[2]=t->h[idx]*t->scaleV; v[1].st[0]=1; v[1].st[1]=0;
-    idx = y1*t->width + x;   v[2].xyz[0]=x*t->scaleH; v[2].xyz[1]=y1*t->scaleH;v[2].xyz[2]=t->h[idx]*t->scaleV; v[2].st[0]=0; v[2].st[1]=1;
-    idx = y1*t->width + x1;  v[3].xyz[0]=x1*t->scaleH;v[3].xyz[1]=y1*t->scaleH;v[3].xyz[2]=t->h[idx]*t->scaleV; v[3].st[0]=1; v[3].st[1]=1;
+    // CW winding order (reversed from CCW)
+    // Bottom-left (0,0)
+    idx = y*t->width + x;    
+    v[0].xyz[0]=x*t->scaleH; 
+    v[0].xyz[1]=y*t->scaleH; 
+    v[0].xyz[2]=t->h[idx]*t->scaleV; 
+    v[0].st[0]=(float)x/(float)(t->width-1); 
+    v[0].st[1]=(float)y/(float)(t->height-1);
+    
+    // Top-left (0,1)
+    idx = y1*t->width + x;   
+    v[1].xyz[0]=x*t->scaleH; 
+    v[1].xyz[1]=y1*t->scaleH;
+    v[1].xyz[2]=t->h[idx]*t->scaleV; 
+    v[1].st[0]=(float)x/(float)(t->width-1); 
+    v[1].st[1]=(float)y1/(float)(t->height-1);
+    
+    // Top-right (1,1)
+    idx = y1*t->width + x1;  
+    v[2].xyz[0]=x1*t->scaleH;
+    v[2].xyz[1]=y1*t->scaleH;
+    v[2].xyz[2]=t->h[idx]*t->scaleV; 
+    v[2].st[0]=(float)x1/(float)(t->width-1); 
+    v[2].st[1]=(float)y1/(float)(t->height-1);
+    
+    // Bottom-right (1,0)
+    idx = y*t->width + x1;   
+    v[3].xyz[0]=x1*t->scaleH;
+    v[3].xyz[1]=y*t->scaleH; 
+    v[3].xyz[2]=t->h[idx]*t->scaleV; 
+    v[3].st[0]=(float)x1/(float)(t->width-1); 
+    v[3].st[1]=(float)y/(float)(t->height-1);
+    
     emit(v, user);
 }
 
