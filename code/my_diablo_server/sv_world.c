@@ -35,7 +35,13 @@ be returned, otherwise a custom box tree will be constructed.
 clipHandle_t SV_ClipHandleForEntity( const sharedEntity_t *ent ) {
 	if ( ent->r.bmodel ) {
 		// explicit hulls in the BSP model
-		return CM_InlineModel( ent->s.modelindex );
+		// For world maps without BSP, use bounding box instead
+		if ( CM_NumInlineModels() > 0 && ent->s.modelindex < CM_NumInlineModels() ) {
+			return CM_InlineModel( ent->s.modelindex );
+		} else {
+			// No BSP models available, use bounding box
+			return CM_TempBoxModel( ent->r.mins, ent->r.maxs, qfalse );
+		}
 	}
 	if ( ent->r.svFlags & SVF_CAPSULE ) {
 		// create a temp capsule from bounding box sizes
@@ -152,8 +158,16 @@ void SV_ClearWorld( void ) {
 	sv_numworldSectors = 0;
 
 	// get world map bounds
-	h = CM_InlineModel( 0 );
-	CM_ModelBounds( h, mins, maxs );
+	// For world maps without BSP, use default bounds
+	if ( CM_NumInlineModels() > 0 ) {
+		h = CM_InlineModel( 0 );
+		CM_ModelBounds( h, mins, maxs );
+	} else {
+		// Default bounds for world maps (large enough for terrain)
+		VectorSet( mins, -65536, -65536, -65536 );
+		VectorSet( maxs, 65536, 65536, 65536 );
+		Com_Printf( "SV_ClearWorld: Using default bounds for world map\n" );
+	}
 	SV_CreateworldSector( 0, mins, maxs );
 }
 

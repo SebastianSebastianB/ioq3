@@ -173,7 +173,8 @@ qboolean G_LoadWorldDefinition( const char *mapName ) {
 		const char *skyboxJson = JSON_ObjectGetNamedValue( buffer, jsonEnd, WORLD_SKYBOX_KEY );
 		if ( skyboxJson && JSON_ValueGetType( skyboxJson, jsonEnd ) == JSONTYPE_STRING ) {
 			char skyboxValue[MAX_QPATH];
-			if ( JSON_ValueGetString( skyboxJson, jsonEnd, skyboxValue, sizeof(skyboxValue) ) > 0 ) {
+			unsigned int len = JSON_ValueGetString( skyboxJson, jsonEnd, skyboxValue, sizeof(skyboxValue) );
+			if ( len > 0 ) {
 				Q_strncpyz( g_world.skyboxShader, skyboxValue, sizeof( g_world.skyboxShader ) );
 				G_Printf( "DEBUG: Parsed skybox shader: '%s'\n", g_world.skyboxShader );
 			}

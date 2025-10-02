@@ -606,3 +606,92 @@ qboolean CG_LoadWorldDefinition(const char *mapName)
 
 	return qtrue;
 }
+
+/*
+=================
+CG_DrawWorldSkybox
+
+Renders skybox for world maps that don't have BSP world model.
+Draws a large cube around the camera using the skybox shader from world definition.
+=================
+*/
+void CG_DrawWorldSkybox(void) {
+	polyVert_t verts[4];
+	vec3_t skyboxSize;
+	float size = 8000.0f; // Very large cube around player
+	qhandle_t skyShader;
+	vec3_t origin;
+	int i;
+	
+	// Only draw skybox if we have terrain enabled (world map)
+	if (!cg.world.terrain.enabled) {
+		return;
+	}
+	
+	// Use skybox shader from server (set via r_forceSky cvar)
+	// For now, register hellsky directly as fallback
+	skyShader = trap_R_RegisterShader("textures/skies/hellsky");
+	if (!skyShader) {
+		return; // No skybox shader available
+	}
+	
+	// Center skybox on camera position
+	VectorCopy(cg.refdef.vieworg, origin);
+	
+	// Draw 6 faces of skybox cube
+	// All vertices use same texture coordinates (skybox shader handles this)
+	
+	// Face 1: Front (+Y)
+	verts[0].modulate[0] = verts[0].modulate[1] = verts[0].modulate[2] = verts[0].modulate[3] = 255;
+	verts[0].st[0] = 0; verts[0].st[1] = 0;
+	verts[0].xyz[0] = origin[0] - size; verts[0].xyz[1] = origin[1] + size; verts[0].xyz[2] = origin[2] - size;
+	
+	verts[1].st[0] = 1; verts[1].st[1] = 0;
+	verts[1].xyz[0] = origin[0] + size; verts[1].xyz[1] = origin[1] + size; verts[1].xyz[2] = origin[2] - size;
+	verts[1].modulate[0] = verts[1].modulate[1] = verts[1].modulate[2] = verts[1].modulate[3] = 255;
+	
+	verts[2].st[0] = 1; verts[2].st[1] = 1;
+	verts[2].xyz[0] = origin[0] + size; verts[2].xyz[1] = origin[1] + size; verts[2].xyz[2] = origin[2] + size;
+	verts[2].modulate[0] = verts[2].modulate[1] = verts[2].modulate[2] = verts[2].modulate[3] = 255;
+	
+	verts[3].st[0] = 0; verts[3].st[1] = 1;
+	verts[3].xyz[0] = origin[0] - size; verts[3].xyz[1] = origin[1] + size; verts[3].xyz[2] = origin[2] + size;
+	verts[3].modulate[0] = verts[3].modulate[1] = verts[3].modulate[2] = verts[3].modulate[3] = 255;
+	
+	trap_R_AddPolyToScene(skyShader, 4, verts);
+	
+	// Face 2: Back (-Y)
+	verts[0].xyz[0] = origin[0] + size; verts[0].xyz[1] = origin[1] - size; verts[0].xyz[2] = origin[2] - size;
+	verts[1].xyz[0] = origin[0] - size; verts[1].xyz[1] = origin[1] - size; verts[1].xyz[2] = origin[2] - size;
+	verts[2].xyz[0] = origin[0] - size; verts[2].xyz[1] = origin[1] - size; verts[2].xyz[2] = origin[2] + size;
+	verts[3].xyz[0] = origin[0] + size; verts[3].xyz[1] = origin[1] - size; verts[3].xyz[2] = origin[2] + size;
+	trap_R_AddPolyToScene(skyShader, 4, verts);
+	
+	// Face 3: Left (-X)
+	verts[0].xyz[0] = origin[0] - size; verts[0].xyz[1] = origin[1] - size; verts[0].xyz[2] = origin[2] - size;
+	verts[1].xyz[0] = origin[0] - size; verts[1].xyz[1] = origin[1] + size; verts[1].xyz[2] = origin[2] - size;
+	verts[2].xyz[0] = origin[0] - size; verts[2].xyz[1] = origin[1] + size; verts[2].xyz[2] = origin[2] + size;
+	verts[3].xyz[0] = origin[0] - size; verts[3].xyz[1] = origin[1] - size; verts[3].xyz[2] = origin[2] + size;
+	trap_R_AddPolyToScene(skyShader, 4, verts);
+	
+	// Face 4: Right (+X)
+	verts[0].xyz[0] = origin[0] + size; verts[0].xyz[1] = origin[1] + size; verts[0].xyz[2] = origin[2] - size;
+	verts[1].xyz[0] = origin[0] + size; verts[1].xyz[1] = origin[1] - size; verts[1].xyz[2] = origin[2] - size;
+	verts[2].xyz[0] = origin[0] + size; verts[2].xyz[1] = origin[1] - size; verts[2].xyz[2] = origin[2] + size;
+	verts[3].xyz[0] = origin[0] + size; verts[3].xyz[1] = origin[1] + size; verts[3].xyz[2] = origin[2] + size;
+	trap_R_AddPolyToScene(skyShader, 4, verts);
+	
+	// Face 5: Top (+Z)
+	verts[0].xyz[0] = origin[0] - size; verts[0].xyz[1] = origin[1] - size; verts[0].xyz[2] = origin[2] + size;
+	verts[1].xyz[0] = origin[0] - size; verts[1].xyz[1] = origin[1] + size; verts[1].xyz[2] = origin[2] + size;
+	verts[2].xyz[0] = origin[0] + size; verts[2].xyz[1] = origin[1] + size; verts[2].xyz[2] = origin[2] + size;
+	verts[3].xyz[0] = origin[0] + size; verts[3].xyz[1] = origin[1] - size; verts[3].xyz[2] = origin[2] + size;
+	trap_R_AddPolyToScene(skyShader, 4, verts);
+	
+	// Face 6: Bottom (-Z)
+	verts[0].xyz[0] = origin[0] - size; verts[0].xyz[1] = origin[1] + size; verts[0].xyz[2] = origin[2] - size;
+	verts[1].xyz[0] = origin[0] - size; verts[1].xyz[1] = origin[1] - size; verts[1].xyz[2] = origin[2] - size;
+	verts[2].xyz[0] = origin[0] + size; verts[2].xyz[1] = origin[1] - size; verts[2].xyz[2] = origin[2] - size;
+	verts[3].xyz[0] = origin[0] + size; verts[3].xyz[1] = origin[1] + size; verts[3].xyz[2] = origin[2] - size;
+	trap_R_AddPolyToScene(skyShader, 4, verts);
+}

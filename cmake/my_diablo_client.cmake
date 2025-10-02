@@ -11,6 +11,37 @@ include(shared_sources)
 
 include(renderer_common)
 
+# Override COMMON_SOURCES to use my_diablo_qcommon instead of qcommon
+set(MY_DIABLO_COMMON_SOURCES
+    ${SOURCE_DIR}/my_diablo_qcommon/cm_load.c
+    ${SOURCE_DIR}/my_diablo_qcommon/cm_patch.c
+    ${SOURCE_DIR}/my_diablo_qcommon/cm_polylib.c
+    ${SOURCE_DIR}/my_diablo_qcommon/cm_test.c
+    ${SOURCE_DIR}/my_diablo_qcommon/cm_trace.c
+    ${SOURCE_DIR}/my_diablo_qcommon/cmd.c
+    ${SOURCE_DIR}/my_diablo_qcommon/common.c
+    ${SOURCE_DIR}/my_diablo_qcommon/cvar.c
+    ${SOURCE_DIR}/my_diablo_qcommon/files.c
+    ${SOURCE_DIR}/my_diablo_qcommon/md4.c
+    ${SOURCE_DIR}/my_diablo_qcommon/md5.c
+    ${SOURCE_DIR}/my_diablo_qcommon/msg.c
+    ${SOURCE_DIR}/my_diablo_qcommon/net_chan.c
+    ${SOURCE_DIR}/my_diablo_qcommon/net_ip.c
+    ${SOURCE_DIR}/my_diablo_qcommon/huffman.c
+    ${SOURCE_DIR}/my_diablo_qcommon/q_math.c
+    ${SOURCE_DIR}/my_diablo_qcommon/q_shared.c
+    ${SOURCE_DIR}/my_diablo_qcommon/unzip.c
+    ${SOURCE_DIR}/my_diablo_qcommon/ioapi.c
+    ${SOURCE_DIR}/my_diablo_qcommon/vm.c
+    ${SOURCE_DIR}/my_diablo_qcommon/vm_armv7l.c
+    ${SOURCE_DIR}/my_diablo_qcommon/vm_interpreted.c
+    ${SOURCE_DIR}/my_diablo_qcommon/vm_powerpc.c
+    ${SOURCE_DIR}/my_diablo_qcommon/vm_sparc.c
+    ${SOURCE_DIR}/my_diablo_qcommon/vm_x86.c
+)
+
+add_git_dependency(${SOURCE_DIR}/my_diablo_qcommon/common.c)
+
 # Use modified server sources from my_diablo_server folder
 set(MY_DIABLO_SERVER_SOURCES
     ${SOURCE_DIR}/my_diablo_server/sv_bot.c
@@ -68,7 +99,7 @@ set(MY_DIABLO_CLIENT_BINARY "ioquake3_diablo")
 list(APPEND MY_DIABLO_CLIENT_BINARY_SOURCES
     ${MY_DIABLO_SERVER_SOURCES}
     ${MY_DIABLO_CLIENT_SOURCES}
-    ${COMMON_SOURCES}
+    ${MY_DIABLO_COMMON_SOURCES}
     ${BOTLIB_SOURCES}
     ${SYSTEM_SOURCES}
     ${ASM_SOURCES}

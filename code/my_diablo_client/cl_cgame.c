@@ -380,15 +380,10 @@ void CL_CM_LoadMap( const char *mapname ) {
 	if (strstr(mapname, ".world") != NULL) {
 		Com_Printf("CL_CM_LoadMap: Skipping BSP load for world file: %s\n", mapname);
 		
-		// Load a dummy BSP to initialize CM system (same as server does)
-		// This prevents CM_InlineModel errors
-		if (FS_ReadFile("maps/q3dm0.bsp", NULL) > 0) {
-			CM_LoadMap("maps/q3dm0.bsp", qtrue, &checksum);
-			Com_Printf("  Using q3dm0.bsp as dummy collision map (client)\n");
-		} else {
-			// Fallback: clear the map
-			Com_Printf("  Warning: No dummy BSP loaded on client\n");
-		}
+		// Clear collision map system - world maps use heightmap-based collision
+		// Professional solution: no dummy BSP needed on client side
+		CM_ClearMap();
+		Com_Printf("  Initialized empty collision map (client)\n");
 		return;
 	}
 

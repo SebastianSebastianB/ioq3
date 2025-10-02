@@ -123,8 +123,16 @@ void SV_SetBrushModel( sharedEntity_t *ent, const char *name ) {
 
 	ent->s.modelindex = atoi( name + 1 );
 
-	h = CM_InlineModel( ent->s.modelindex );
-	CM_ModelBounds( h, mins, maxs );
+	// For world maps without BSP models, use default bounds
+	if ( CM_NumInlineModels() > 0 && ent->s.modelindex < CM_NumInlineModels() ) {
+		h = CM_InlineModel( ent->s.modelindex );
+		CM_ModelBounds( h, mins, maxs );
+	} else {
+		// No BSP model available, use default bounds
+		VectorSet( mins, -16, -16, -16 );
+		VectorSet( maxs, 16, 16, 16 );
+		Com_Printf( "SV_SetBrushModel: No BSP model for *%d, using default bounds\n", ent->s.modelindex );
+	}
 	VectorCopy (mins, ent->r.mins);
 	VectorCopy (maxs, ent->r.maxs);
 	ent->r.bmodel = qtrue;

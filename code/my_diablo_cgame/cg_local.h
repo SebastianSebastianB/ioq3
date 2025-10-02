@@ -1261,6 +1261,7 @@ void CG_StartMusic( void );
 void CG_ClearWorldDefinition( void );
 qboolean CG_LoadWorldDefinition( const char *mapName );
 void CG_AddTerrainToScene( void );
+void CG_DrawWorldSkybox( void );
 
 void CG_UpdateCvars( void );
 

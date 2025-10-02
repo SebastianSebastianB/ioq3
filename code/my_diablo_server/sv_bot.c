@@ -261,8 +261,15 @@ static void BotImport_BSPModelMinsMaxsOrigin(int modelnum, vec3_t angles, vec3_t
 	float max;
 	int	i;
 
-	h = CM_InlineModel(modelnum);
-	CM_ModelBounds(h, mins, maxs);
+	// For world maps without BSP models, use default bounds
+	if ( CM_NumInlineModels() > 0 && modelnum < CM_NumInlineModels() ) {
+		h = CM_InlineModel(modelnum);
+		CM_ModelBounds(h, mins, maxs);
+	} else {
+		// No BSP model available, use default bounds
+		VectorSet( mins, -16, -16, -16 );
+		VectorSet( maxs, 16, 16, 16 );
+	}
 	//if the model is rotated
 	if ((angles[0] || angles[1] || angles[2])) {
 		// expand for rotation

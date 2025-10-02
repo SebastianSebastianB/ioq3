@@ -831,6 +831,9 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 
 	// build the render lists
 	if ( !cg.hyperspace ) {
+		// Draw skybox first (background) for world maps
+		CG_DrawWorldSkybox();
+		
 		CG_Printf("DEBUG: Before CG_AddPacketEntities\n");
 		CG_AddPacketEntities();			// adter calcViewValues, so predicted player state is correct
 		CG_Printf("DEBUG: Before CG_AddMarks\n");
