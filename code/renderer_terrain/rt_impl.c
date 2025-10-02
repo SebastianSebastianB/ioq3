@@ -9,6 +9,7 @@ struct RT_Handle {
     float scaleH, scaleV;
     float* h; // heights in meters
     RT_Camera cam;
+    float uvScale; // Texture tiling scale (default 1.0, higher = more repeats)
 };
 
 static float clampf(float v, float a, float b){ return v<a?a:(v>b?b:v);} 
@@ -22,6 +23,7 @@ RT_Handle* RT_CreateFromHeights(const float* heights, int width, int height,
     RT_Handle* h = (RT_Handle*)calloc(1, sizeof(*h));
     if(!h) return NULL;
     h->width=width; h->height=height; h->scaleH=scaleH; h->scaleV=scaleV;
+    h->uvScale = 4.0f; // Default tiling: 4x texture repeat (adjust as needed)
     size_t n = (size_t)width*height;
     h->h = (float*)malloc(n*sizeof(float));
     if(!h->h){ free(h); return NULL; }
@@ -95,32 +97,32 @@ static void emitQuadRT(RT_Handle* t, int x, int y, int step, RT_EmitQuadFn emit,
     v[0].xyz[0]=x*t->scaleH; 
     v[0].xyz[1]=y*t->scaleH; 
     v[0].xyz[2]=t->h[idx]*t->scaleV; 
-    v[0].st[0]=(float)x/(float)(t->width-1); 
-    v[0].st[1]=(float)y/(float)(t->height-1);
+    v[0].st[0]=(float)x/(float)(t->width-1) * t->uvScale; // Apply UV tiling scale
+    v[0].st[1]=(float)y/(float)(t->height-1) * t->uvScale;
     
     // Top-left (0,1)
     idx = y1*t->width + x;   
     v[1].xyz[0]=x*t->scaleH; 
     v[1].xyz[1]=y1*t->scaleH;
     v[1].xyz[2]=t->h[idx]*t->scaleV; 
-    v[1].st[0]=(float)x/(float)(t->width-1); 
-    v[1].st[1]=(float)y1/(float)(t->height-1);
+    v[1].st[0]=(float)x/(float)(t->width-1) * t->uvScale;
+    v[1].st[1]=(float)y1/(float)(t->height-1) * t->uvScale;
     
     // Top-right (1,1)
     idx = y1*t->width + x1;  
     v[2].xyz[0]=x1*t->scaleH;
     v[2].xyz[1]=y1*t->scaleH;
     v[2].xyz[2]=t->h[idx]*t->scaleV; 
-    v[2].st[0]=(float)x1/(float)(t->width-1); 
-    v[2].st[1]=(float)y1/(float)(t->height-1);
+    v[2].st[0]=(float)x1/(float)(t->width-1) * t->uvScale;
+    v[2].st[1]=(float)y1/(float)(t->height-1) * t->uvScale;
     
     // Bottom-right (1,0)
     idx = y*t->width + x1;   
     v[3].xyz[0]=x1*t->scaleH;
     v[3].xyz[1]=y*t->scaleH; 
     v[3].xyz[2]=t->h[idx]*t->scaleV; 
-    v[3].st[0]=(float)x1/(float)(t->width-1); 
-    v[3].st[1]=(float)y/(float)(t->height-1);
+    v[3].st[0]=(float)x1/(float)(t->width-1) * t->uvScale;
+    v[3].st[1]=(float)y/(float)(t->height-1) * t->uvScale;
     
     emit(v, user);
 }
