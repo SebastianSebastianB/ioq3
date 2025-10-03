@@ -367,6 +367,64 @@ static qboolean CG_LoadTerrainHeightmap(void)
 	return qtrue;
 }
 
+//==========================================================================
+// TERRAIN HEIGHT QUERY - Used by bg_pmove.c for jitter-free collision
+//==========================================================================
+
+/*
+=================
+CG_GetTerrainHeightAt
+Bilinear interpolation of heightmap - matches RT_GetHeightAt exactly
+=================
+*/
+float CG_GetTerrainHeightAt(float worldX, float worldY) {
+	if (!cg.world.terrain.enabled || !cg.world.terrain.heightSamples) {
+		return 0.0f;
+	}
+	
+	const int width = cg.world.terrain.heightmapWidth;
+	const int height = cg.world.terrain.heightmapHeight;
+	const float scaleH = cg.world.terrain.scaleHorizontal;
+	const float scaleV = cg.world.terrain.scaleVertical;
+	
+	// Convert world coords to grid space
+	float gx = worldX / scaleH;
+	float gy = worldY / scaleH;
+	
+	// Get integer grid coordinates
+	int x0 = (int)floor(gx);
+	int y0 = (int)floor(gy);
+	int x1 = x0 + 1;
+	int y1 = y0 + 1;
+	
+	// Clamp to valid range
+	if (x0 < 0) x0 = 0;
+	if (y0 < 0) y0 = 0;
+	if (x1 >= width) x1 = width - 1;
+	if (y1 >= height) y1 = height - 1;
+	if (x0 >= width) x0 = width - 1;
+	if (y0 >= height) y0 = height - 1;
+	
+	// Get fractional part for interpolation
+	float fx = gx - floor(gx);
+	float fy = gy - floor(gy);
+	
+	// Sample 4 heightmap corners (normalized 0-1, so multiply by scaleV)
+	float h00 = s_heightSamples[y0 * width + x0] * scaleV;
+	float h10 = s_heightSamples[y0 * width + x1] * scaleV;
+	float h01 = s_heightSamples[y1 * width + x0] * scaleV;
+	float h11 = s_heightSamples[y1 * width + x1] * scaleV;
+	
+	// Bilinear interpolation
+	float h0 = h00 * (1.0f - fx) + h10 * fx;
+	float h1 = h01 * (1.0f - fx) + h11 * fx;
+	float terrainHeight = h0 * (1.0f - fy) + h1 * fy;
+	
+	return terrainHeight;
+}
+
+//==========================================================================
+
 static void CG_BuildTerrainMesh(void)
 {
 	const int width = cg.world.terrain.heightmapWidth;

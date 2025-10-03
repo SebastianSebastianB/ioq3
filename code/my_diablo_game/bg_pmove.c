@@ -30,6 +30,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 pmove_t		*pm;
 pml_t		pml;
 
+// Globalny wskaźnik do terenu - ustawiany przez serwer/klient przed Pmove()
+// Jeśli != NULL, PM_GroundTrace użyje bezpośrednio RT_GetHeightAt zamiast trace
+void		*pm_terrain_handle = NULL;
+
+// Globalny wskaźnik funkcyjny do pobierania wysokości terenu
+// Serwer: trap_RT_GetHeightAt, Klient: CG_GetTerrainHeightAt
+float (*pm_get_terrain_height)(float x, float y) = NULL;
+
 // movement parameters
 float	pm_stopspeed = 100.0f;
 float	pm_duckScale = 0.25f;
@@ -1107,11 +1115,127 @@ static void PM_GroundTrace( void ) {
 	vec3_t		point;
 	trace_t		trace;
 
+	// 🔥 NOWA LOGIKA: Dla terenu używamy bezpośrednio GetHeightAt zamiast trace
+	// Eliminuje to jitter spowodowany rozbieżnościami float w interpolacji trace'a
+	extern void *pm_terrain_handle;
+	extern float (*pm_get_terrain_height)(float x, float y);
+	
+	// DEBUG: Sprawdź czy wskaźniki są ustawione
+	static int debugCount = 0;
+	if (debugCount < 3) {
+		Com_Printf("^5[PM_GroundTrace DEBUG] terrain_handle=%p get_height=%p\n", 
+			pm_terrain_handle, pm_get_terrain_height);
+		debugCount++;
+	}
+	
+	if (pm_terrain_handle != NULL && pm_get_terrain_height != NULL) {
+		// Pobierz wysokość terenu w pozycji gracza
+		float terrainHeight = pm_get_terrain_height(pm->ps->origin[0], pm->ps->origin[1]);
+		float playerBottom = pm->ps->origin[2] + pm->mins[2];  // Dolna krawędź bounding box
+		float distanceToTerrain = playerBottom - terrainHeight;
+		
+		// DEBUG: Pokaż wartości + velocity
+		static int terrainDebugCount = 0;
+		if (terrainDebugCount < 5) {
+			Com_Printf("^3[TERRAIN PATH] terrainH=%.2f playerBot=%.2f dist=%.2f velZ=%.2f\n",
+				terrainHeight, playerBottom, distanceToTerrain, pm->ps->velocity[2]);
+			terrainDebugCount++;
+		}
+		
+		// INTELIGENTNA TOLERANCJA:
+		// - Jeśli gracz spada (velocity[2] < 0) i jest w rozsądnej odległości: użyj heightfield
+		// - Jeśli gracz wznosi się (velocity[2] > 0, czyli skacze): NIE używaj heightfield (pozwól skoczyć!)
+		// - Jeśli gracz stoi/chodzi (velocity[2] ~= 0) i jest blisko: użyj heightfield
+		qboolean isRising = (pm->ps->velocity[2] > 100.0f);  // Gracz AKTYWNIE skacze (zwiększona wartość)
+		qboolean isCloseToTerrain = (distanceToTerrain >= -20.0f && distanceToTerrain <= 15.0f);  // Zwiększona tolerancja
+		
+		// Użyj direct heightfield TYLKO gdy gracz NIE skacze i jest blisko terenu
+		if (!isRising && isCloseToTerrain) {
+			// ✅ PROFESJONALNE PODEJŚCIE: Ustaw trace result tak jak w Q3
+			Com_Memset(&trace, 0, sizeof(trace));
+			
+			// Jeśli gracz jest DOKŁADNIE na terenie lub minimalnie powyżej
+			if (distanceToTerrain >= -0.25f && distanceToTerrain <= 0.25f) {
+				// Jesteśmy właściwie "na" terenie
+				trace.fraction = 0.0f;
+				trace.allsolid = qfalse;
+				trace.startsolid = qfalse;
+			} else if (distanceToTerrain < -0.25f) {
+				// Jesteśmy PONIŻEJ terenu (po spawnie)
+				trace.fraction = 0.0f;
+				trace.allsolid = qfalse;
+				trace.startsolid = qtrue;  // Znacznik że musimy się podnieść
+			} else {
+				// Jesteśmy powyżej terenu (spadanie)
+				trace.fraction = distanceToTerrain / 64.0f;  // Normalizacja
+				if (trace.fraction > 1.0f) trace.fraction = 1.0f;
+				trace.allsolid = qfalse;
+				trace.startsolid = qfalse;
+			}
+			
+			// Końcowa pozycja trace zawsze pokazuje teren
+			trace.endpos[0] = pm->ps->origin[0];
+			trace.endpos[1] = pm->ps->origin[1];
+			trace.endpos[2] = terrainHeight;  // Wysokość TERENU (nie origin gracza!)
+			
+			// Pionowa normalna - czysta jak w Q3
+			VectorSet(trace.plane.normal, 0, 0, 1);
+			trace.plane.dist = terrainHeight;
+			trace.plane.type = PLANE_Z;
+			
+			trace.entityNum = ENTITYNUM_WORLD;
+			trace.contents = CONTENTS_SOLID;
+			trace.surfaceFlags = 0;
+			
+			pml.groundTrace = trace;
+			pml.groundPlane = qtrue;
+			pml.walking = qtrue;
+			
+			// Obsługa wylądowania
+			if (pm->ps->groundEntityNum == ENTITYNUM_NONE) {
+				// Właśnie wylądowaliśmy
+				if (pm->debugLevel) {
+					Com_Printf("%i:Land on terrain\n", c_pmove);
+				}
+				
+				if (pml.previous_velocity[2] < -200) {
+					PM_CrashLand();
+					pm->ps->pm_flags |= PMF_TIME_LAND;
+					pm->ps->pm_time = 250;
+				}
+			}
+			
+			pm->ps->groundEntityNum = ENTITYNUM_WORLD;
+			
+			// NIE modyfikuj origin tutaj - pozwól standardowej fizyce Q3 to obsłużyć!
+			// PM_StepSlideMove() i inne funkcje zadbają o naturalną korekcję pozycji
+			
+			// Zero out Z velocity gdy jesteśmy na ziemi
+			if (pm->ps->velocity[2] < 0) {
+				pm->ps->velocity[2] = 0;
+			}
+			
+			// Zakończ waterjump
+			if (pm->ps->pm_flags & PMF_TIME_WATERJUMP) {
+				pm->ps->pm_flags &= ~(PMF_TIME_WATERJUMP | PMF_TIME_LAND);
+				pm->ps->pm_time = 0;
+			}
+			
+			return;  // ✅ GOTOWE - ominięto cały trace pipeline!
+		}
+		
+		// Jesteśmy za daleko od terenu - użyj standardowego trace
+		static int farDebugCount = 0;
+		if (farDebugCount < 3) {
+			Com_Printf("^1[TERRAIN] Too far from terrain: dist=%.2f\n", distanceToTerrain);
+			farDebugCount++;
+		}
+	}
+	
+	// Standardowy trace dla obiektów BSP (budynki, schody, rampy)
 	point[0] = pm->ps->origin[0];
 	point[1] = pm->ps->origin[1];
-	// ANTI-JITTER: Increased from -0.25 to -2.0 for more tolerance with terrain interpolation
-	// This helps reduce fighting between client prediction and server correction
-	point[2] = pm->ps->origin[2] - 2.0;
+	point[2] = pm->ps->origin[2] - 0.25;  // Mniejszy offset dla BSP
 
 	pm->trace (&trace, pm->ps->origin, pm->mins, pm->maxs, point, pm->ps->clientNum, pm->tracemask);
 	pml.groundTrace = trace;

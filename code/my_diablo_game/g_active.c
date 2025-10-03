@@ -926,6 +926,18 @@ void ClientThink_real( gentity_t *ent ) {
 
 	VectorCopy( client->ps.origin, client->oldOrigin );
 
+	// 🔥 NOWE: Ustaw globalny wskaźnik do terenu dla bg_pmove.c (serwer)
+	// Pozwala PM_GroundTrace użyć bezpośrednio RT_GetHeightAt zamiast trace
+	extern void *pm_terrain_handle;
+	extern float (*pm_get_terrain_height)(float x, float y);
+	if (level.usingWorldDefinition) {
+		pm_terrain_handle = (void*)1;  // Sygnalizuje że teren jest aktywny
+		pm_get_terrain_height = trap_RT_GetHeightAt;  // Funkcja serwerowa
+	} else {
+		pm_terrain_handle = NULL;
+		pm_get_terrain_height = NULL;
+	}
+
 #ifdef MISSIONPACK
 		if (level.intermissionQueued != 0 && g_singlePlayer.integer) {
 			if ( level.time - level.intermissionQueued >= 1000  ) {
@@ -943,6 +955,10 @@ void ClientThink_real( gentity_t *ent ) {
 #else
 		Pmove (&pm);
 #endif
+
+	// Wyczyść wskaźniki po Pmove
+	pm_terrain_handle = NULL;
+	pm_get_terrain_height = NULL;
 
 	// TERRAIN COLLISION FOR DIABLO MOD - TEMPORARILY DISABLED FOR CRASH DEBUG
 	// Apply heightmap collision after Pmove physics
