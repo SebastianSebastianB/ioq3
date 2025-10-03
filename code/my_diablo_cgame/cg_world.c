@@ -372,13 +372,17 @@ static void CG_BuildTerrainMesh(void)
 	const int width = cg.world.terrain.heightmapWidth;
 	const int height = cg.world.terrain.heightmapHeight;
 	const float step = cg.world.terrain.scaleHorizontal;
+	const float scaleV = cg.world.terrain.scaleVertical;
 	// IMPORTANT: Match server terrain coordinate system (starts at 0,0 not centered)
 	// const float halfWidth = (width - 1) * step * 0.5f;
 	// const float halfHeight = (height - 1) * step * 0.5f;
 	int quadIndex = 0;
 
+	CG_Printf("^3[BUILD MESH] width=%d height=%d scaleH=%.2f scaleV=%.2f\n", width, height, step, scaleV);
+
 	if (width < 2 || height < 2)
 	{
+		CG_Printf("^1[BUILD MESH] ERROR: Invalid dimensions!\n");
 		cg.world.terrain.meshVerts = NULL;
 		cg.world.terrain.meshVertCount = 0;
 		cg.world.terrain.meshQuadCount = 0;
@@ -401,34 +405,35 @@ static void CG_BuildTerrainMesh(void)
 			float worldY0 = y * step;
 			float worldY1 = (y + 1) * step;
 
-			polyVert_t *vBL = &quad[0];
-			polyVert_t *vBR = &quad[1];
-			polyVert_t *vTR = &quad[2];
-			polyVert_t *vTL = &quad[3];
+			// FIX: Use counter-clockwise winding order: BL → TL → TR → BR
+			polyVert_t *vBL = &quad[0];  // Bottom-Left
+			polyVert_t *vTL = &quad[1];  // Top-Left
+			polyVert_t *vTR = &quad[2];  // Top-Right
+			polyVert_t *vBR = &quad[3];  // Bottom-Right
 
 			vBL->xyz[0] = worldX0;
 			vBL->xyz[1] = worldY0;
-			vBL->xyz[2] = s_heightSamples[idxBL];
+			vBL->xyz[2] = s_heightSamples[idxBL] * cg.world.terrain.scaleVertical;
 			vBL->st[0] = (float)x / (float)(width - 1);
 			vBL->st[1] = (float)y / (float)(height - 1);
 
-			vBR->xyz[0] = worldX1;
-			vBR->xyz[1] = worldY0;
-			vBR->xyz[2] = s_heightSamples[idxBR];
-			vBR->st[0] = (float)(x + 1) / (float)(width - 1);
-			vBR->st[1] = (float)y / (float)(height - 1);
+			vTL->xyz[0] = worldX0;
+			vTL->xyz[1] = worldY1;
+			vTL->xyz[2] = s_heightSamples[idxTL] * cg.world.terrain.scaleVertical;
+			vTL->st[0] = (float)x / (float)(width - 1);
+			vTL->st[1] = (float)(y + 1) / (float)(height - 1);
 
 			vTR->xyz[0] = worldX1;
 			vTR->xyz[1] = worldY1;
-			vTR->xyz[2] = s_heightSamples[idxTR];
+			vTR->xyz[2] = s_heightSamples[idxTR] * cg.world.terrain.scaleVertical;
 			vTR->st[0] = (float)(x + 1) / (float)(width - 1);
 			vTR->st[1] = (float)(y + 1) / (float)(height - 1);
 
-			vTL->xyz[0] = worldX0;
-			vTL->xyz[1] = worldY1;
-			vTL->xyz[2] = s_heightSamples[idxTL];
-			vTL->st[0] = (float)x / (float)(width - 1);
-			vTL->st[1] = (float)(y + 1) / (float)(height - 1);
+			vBR->xyz[0] = worldX1;
+			vBR->xyz[1] = worldY0;
+			vBR->xyz[2] = s_heightSamples[idxBR] * cg.world.terrain.scaleVertical;
+			vBR->st[0] = (float)(x + 1) / (float)(width - 1);
+			vBR->st[1] = (float)y / (float)(height - 1);
 
 			for (int i = 0; i < 4; ++i)
 			{
@@ -445,6 +450,16 @@ static void CG_BuildTerrainMesh(void)
 	cg.world.terrain.meshVerts = s_terrainQuads;
 	cg.world.terrain.meshVertCount = quadIndex * 4;
 	cg.world.terrain.meshQuadCount = quadIndex;
+	
+	// Log first and last quad coordinates
+	int lastQuadIdx = (quadIndex - 1) * 4;
+	CG_Printf("^2[BUILD MESH] SUCCESS: Built %d quads (%d verts)\n", quadIndex, quadIndex * 4);
+	CG_Printf("^3[BUILD MESH] First quad: (%.1f,%.1f,%.1f) to (%.1f,%.1f,%.1f)\n", 
+		s_terrainQuads[0].xyz[0], s_terrainQuads[0].xyz[1], s_terrainQuads[0].xyz[2],
+		s_terrainQuads[2].xyz[0], s_terrainQuads[2].xyz[1], s_terrainQuads[2].xyz[2]);
+	CG_Printf("^3[BUILD MESH] Last quad: (%.1f,%.1f,%.1f) to (%.1f,%.1f,%.1f)\n", 
+		s_terrainQuads[lastQuadIdx].xyz[0], s_terrainQuads[lastQuadIdx].xyz[1], s_terrainQuads[lastQuadIdx].xyz[2],
+		s_terrainQuads[lastQuadIdx+2].xyz[0], s_terrainQuads[lastQuadIdx+2].xyz[1], s_terrainQuads[lastQuadIdx+2].xyz[2]);
 }
 
 static void CG_LoadTerrainAssets(void)
@@ -485,36 +500,37 @@ static void CG_LoadTerrainAssets(void)
 
 void CG_AddTerrainToScene(void)
 {
-	// Terrain rendering re-enabled after fixing CG_PlayerShadow crash
-	// CG_Printf("^3CG_AddTerrainToScene: Rendering terrain\n");
-	
 	qhandle_t shader;
 
-	
+	CG_Printf("^5[RENDER] CG_AddTerrainToScene called - active=%d, resourcesLoaded=%d, meshQuadCount=%d\n", 
+		cg.world.active, cg.world.terrain.resourcesLoaded, cg.world.terrain.meshQuadCount);
 
 	if (!cg.world.active || !cg.world.terrain.resourcesLoaded || cg.world.terrain.meshQuadCount <= 0)
 	{
-		CG_Printf("DEBUG: Early return - active=%d, resourcesLoaded=%d, meshQuadCount=%d\n", 
+		CG_Printf("^1[RENDER] Early return - active=%d, resourcesLoaded=%d, meshQuadCount=%d\n", 
 			cg.world.active, cg.world.terrain.resourcesLoaded, cg.world.terrain.meshQuadCount);
 		return;
 	}
 
 	if (!cg.world.terrain.meshVerts)
 	{
-		
+		CG_Printf("^1[RENDER] Early return - meshVerts is NULL\n");
 		return;
 	}
+
+	CG_Printf("^2[RENDER] Rendering %d quads\n", cg.world.terrain.meshQuadCount);
 
 	shader = cg.world.terrain.baseShader;
 	if (!shader)
 	{
 		shader = cgs.media.whiteShader;
-		
+		CG_Printf("^3[RENDER] Using whiteShader\n");
 	} else {
-		
+		CG_Printf("^2[RENDER] Using baseShader: %d\n", shader);
 	}
 
-	if (s_rt && pRT_SetCamera && pRT_Render) {
+	// TEMPORARILY DISABLE RT RENDERER - use direct mesh rendering
+	if (0 && s_rt && pRT_SetCamera && pRT_Render) {
 		RT_Camera cam;
 		Q_to_RT_Camera(&cam);
 		pRT_SetCamera(s_rt, &cam);
@@ -523,7 +539,7 @@ void CG_AddTerrainToScene(void)
 		return;
 	}
 
-	CG_Printf("DEBUG: About to call trap_R_AddPolysToScene - shader=%d, quadCount=%d\n", 
+	CG_Printf("^4[RENDER] About to call trap_R_AddPolysToScene - shader=%d, quadCount=%d\n", 
 		shader, cg.world.terrain.meshQuadCount);
 	trap_R_AddPolysToScene(shader, 4, cg.world.terrain.meshVerts, cg.world.terrain.meshQuadCount);
 	

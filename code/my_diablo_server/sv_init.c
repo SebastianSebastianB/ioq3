@@ -476,28 +476,75 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 			g_terrainHandle = NULL;
 		}
 		
-		// TEMPORARY: Create dummy flat terrain (64x64) for testing
-		// TODO: Load from .world file when file loading is implemented
-		Com_Printf("^2Initializing terrain collision system...\n");
-		int terrainWidth = 64;
-		int terrainHeight = 64;
-		float* heights = (float*)malloc(terrainWidth * terrainHeight * sizeof(float));
-		if (heights) {
-			// Flat terrain at height 50 units (to catch falling players)
-			// Use pixel value 200 which gives: 200/255 * 64 = 50.196... ≈ 50.20
-			for (int i = 0; i < terrainWidth * terrainHeight; i++) {
-				heights[i] = 200.0f / 255.0f; // Match client heightmap pixel value 200
-			}
-			g_terrainHandle = RT_CreateFromHeights(heights, terrainWidth, terrainHeight, 64.0f, 64.0f);
-			free(heights);
+		// Load terrain from PGM heightmap file
+		Com_Printf("^2Initializing terrain collision system from heightmap...\n");
+		
+		// Try to load heightmap from file (same path as client uses)
+		fileHandle_t f;
+		int fileLen = FS_FOpenFileRead("textures/terrain/test_heightmap3.pgm", &f, qfalse);
+		
+		if (fileLen > 0 && f) {
+			// Read PGM file
+			char* buffer = (char*)malloc(fileLen + 1);
+			FS_Read(buffer, fileLen, f);
+			FS_FCloseFile(f);
+			buffer[fileLen] = '\0';
 			
-			if (g_terrainHandle) {
-				Com_Printf("^2SUCCESS: Terrain collision system initialized (64x64 flat terrain at height 50)\n");
-			} else {
-				Com_Printf("^1ERROR: RT_CreateFromHeights failed!\n");
+			// Parse PGM header: P5\n<width> <height>\n255\n
+			char* p = buffer;
+			if (p[0] == 'P' && p[1] == '5') {
+				p += 2;
+				while (*p == '\n' || *p == '\r' || *p == '#') {
+					if (*p == '#') while (*p && *p != '\n') p++; // Skip comment
+					else p++;
+				}
+				
+				int width = atoi(p);
+				while (*p && *p != ' ' && *p != '\n') p++;
+				while (*p == ' ' || *p == '\n') p++;
+				int height = atoi(p);
+				while (*p && *p != '\n') p++;
+				while (*p == '\n' || *p == '\r') p++;
+				// Skip maxval (255)
+				while (*p && *p != '\n') p++;
+				p++;
+				
+				// Now p points to pixel data
+				unsigned char* pixels = (unsigned char*)p;
+				
+				Com_Printf("^2Loaded heightmap: %dx%d from test_heightmap3.pgm\n", width, height);
+				
+				// Convert to float heights (normalized 0-1)
+				float* heights = (float*)malloc(width * height * sizeof(float));
+				if (heights) {
+					for (int i = 0; i < width * height; i++) {
+						heights[i] = pixels[i] / 255.0f;
+					}
+					
+					g_terrainHandle = RT_CreateFromHeights(heights, width, height, 64.0f, 64.0f);
+					free(heights);
+					
+					if (g_terrainHandle) {
+						Com_Printf("^2SUCCESS: Terrain collision system initialized from heightmap\n");
+					} else {
+						Com_Printf("^1ERROR: RT_CreateFromHeights failed!\n");
+					}
+				}
 			}
+			free(buffer);
 		} else {
-			Com_Printf("^1ERROR: Failed to allocate memory for terrain heightmap!\n");
+			Com_Printf("^3WARNING: Could not load heightmap file, using flat terrain\n");
+			// Fallback: flat terrain
+			int terrainWidth = 64;
+			int terrainHeight = 64;
+			float* heights = (float*)malloc(terrainWidth * terrainHeight * sizeof(float));
+			if (heights) {
+				for (int i = 0; i < terrainWidth * terrainHeight; i++) {
+					heights[i] = 200.0f / 255.0f;
+				}
+				g_terrainHandle = RT_CreateFromHeights(heights, terrainWidth, terrainHeight, 64.0f, 64.0f);
+				free(heights);
+			}
 		}
 	}
 
