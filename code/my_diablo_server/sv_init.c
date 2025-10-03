@@ -521,7 +521,8 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 						heights[i] = pixels[i] / 255.0f;
 					}
 					
-					g_terrainHandle = RT_CreateFromHeights(heights, width, height, 64.0f, 64.0f);
+					// FIXED: Use correct scales matching my_level.world (horizontal=8, vertical=64)
+					g_terrainHandle = RT_CreateFromHeights(heights, width, height, 8.0f, 64.0f);
 					free(heights);
 					
 					if (g_terrainHandle) {
@@ -542,7 +543,8 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 				for (int i = 0; i < terrainWidth * terrainHeight; i++) {
 					heights[i] = 200.0f / 255.0f;
 				}
-				g_terrainHandle = RT_CreateFromHeights(heights, terrainWidth, terrainHeight, 64.0f, 64.0f);
+				// FIXED: Use correct scales matching my_level.world
+				g_terrainHandle = RT_CreateFromHeights(heights, terrainWidth, terrainHeight, 8.0f, 64.0f);
 				free(heights);
 			}
 		}

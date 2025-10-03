@@ -1690,7 +1690,20 @@ void CG_FireWeapon( centity_t *cent ) {
 		CG_Error( "CG_FireWeapon: ent->weapon >= WP_NUM_WEAPONS" );
 		return;
 	}
+	
+	// SAFETY: Check if cent is valid
+	if (!cent) {
+		CG_Printf("^1[CRASH PREVENTION] CG_FireWeapon: cent is NULL!\n");
+		return;
+	}
+	
 	weap = &cg_weapons[ ent->weapon ];
+	
+	// SAFETY: Check if weapon info is valid
+	if (!weap) {
+		CG_Printf("^1[CRASH PREVENTION] CG_FireWeapon: weap is NULL for weapon %d!\n", ent->weapon);
+		return;
+	}
 
 	// mark the entity as muzzle flashing, so when it is added it will
 	// append the flash to the weapon model
@@ -1722,12 +1735,16 @@ void CG_FireWeapon( centity_t *cent ) {
 		c = rand() % c;
 		if ( weap->flashSound[c] )
 		{
-			trap_S_StartSound( NULL, ent->number, CHAN_WEAPON, weap->flashSound[c] );
+			// SAFETY: Check if sound handle is valid before playing
+			if (weap->flashSound[c] > 0) {
+				trap_S_StartSound( NULL, ent->number, CHAN_WEAPON, weap->flashSound[c] );
+			}
 		}
 	}
 
 	// do brass ejection
-	if ( weap->ejectBrassFunc && cg_brassTime.integer > 0 ) {
+	// SAFETY: Check if ejectBrassFunc exists before calling
+	if ( weap->ejectBrassFunc && cg_brassTime.integer > 0 && cent) {
 		weap->ejectBrassFunc( cent );
 	}
 }

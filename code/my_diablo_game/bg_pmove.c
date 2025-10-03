@@ -1109,7 +1109,9 @@ static void PM_GroundTrace( void ) {
 
 	point[0] = pm->ps->origin[0];
 	point[1] = pm->ps->origin[1];
-	point[2] = pm->ps->origin[2] - 0.25;
+	// ANTI-JITTER: Increased from -0.25 to -2.0 for more tolerance with terrain interpolation
+	// This helps reduce fighting between client prediction and server correction
+	point[2] = pm->ps->origin[2] - 2.0;
 
 	pm->trace (&trace, pm->ps->origin, pm->mins, pm->maxs, point, pm->ps->clientNum, pm->tracemask);
 	pml.groundTrace = trace;
@@ -1177,7 +1179,11 @@ static void PM_GroundTrace( void ) {
 			Com_Printf("%i:Land\n", c_pmove);
 		}
 		
-		PM_CrashLand();
+		// ANTI-JITTER: Only do crash land if falling fast enough
+		// Prevents constant re-landing due to small terrain interpolation differences
+		if ( pml.previous_velocity[2] < -50 ) {
+			PM_CrashLand();
+		}
 
 		// don't do landing time if we were just going down a slope
 		if ( pml.previous_velocity[2] < -200 ) {
@@ -1189,8 +1195,11 @@ static void PM_GroundTrace( void ) {
 
 	pm->ps->groundEntityNum = trace.entityNum;
 
-	// don't reset the z velocity for slopes
-//	pm->ps->velocity[2] = 0;
+	// ANTI-JITTER: If on ground and Z velocity is very small (oscillating), zero it out
+	// This prevents micro-bouncing from terrain interpolation differences
+	if ( pm->ps->velocity[2] > -50 && pm->ps->velocity[2] < 50 ) {
+		pm->ps->velocity[2] = 0;
+	}
 
 	PM_AddTouchEnt( trace.entityNum );
 }

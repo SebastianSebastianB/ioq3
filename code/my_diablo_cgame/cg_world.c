@@ -501,32 +501,29 @@ static void CG_LoadTerrainAssets(void)
 void CG_AddTerrainToScene(void)
 {
 	qhandle_t shader;
+	static qboolean loggedOnce = qfalse;
 
-	CG_Printf("^5[RENDER] CG_AddTerrainToScene called - active=%d, resourcesLoaded=%d, meshQuadCount=%d\n", 
-		cg.world.active, cg.world.terrain.resourcesLoaded, cg.world.terrain.meshQuadCount);
+	// Log only once to avoid spam
+	if (!loggedOnce) {
+		CG_Printf("^5[RENDER] CG_AddTerrainToScene initialized - active=%d, resourcesLoaded=%d, meshQuadCount=%d\n", 
+			cg.world.active, cg.world.terrain.resourcesLoaded, cg.world.terrain.meshQuadCount);
+		loggedOnce = qtrue;
+	}
 
 	if (!cg.world.active || !cg.world.terrain.resourcesLoaded || cg.world.terrain.meshQuadCount <= 0)
 	{
-		CG_Printf("^1[RENDER] Early return - active=%d, resourcesLoaded=%d, meshQuadCount=%d\n", 
-			cg.world.active, cg.world.terrain.resourcesLoaded, cg.world.terrain.meshQuadCount);
 		return;
 	}
 
 	if (!cg.world.terrain.meshVerts)
 	{
-		CG_Printf("^1[RENDER] Early return - meshVerts is NULL\n");
 		return;
 	}
-
-	CG_Printf("^2[RENDER] Rendering %d quads\n", cg.world.terrain.meshQuadCount);
 
 	shader = cg.world.terrain.baseShader;
 	if (!shader)
 	{
 		shader = cgs.media.whiteShader;
-		CG_Printf("^3[RENDER] Using whiteShader\n");
-	} else {
-		CG_Printf("^2[RENDER] Using baseShader: %d\n", shader);
 	}
 
 	// TEMPORARILY DISABLE RT RENDERER - use direct mesh rendering
@@ -539,8 +536,6 @@ void CG_AddTerrainToScene(void)
 		return;
 	}
 
-	CG_Printf("^4[RENDER] About to call trap_R_AddPolysToScene - shader=%d, quadCount=%d\n", 
-		shader, cg.world.terrain.meshQuadCount);
 	trap_R_AddPolysToScene(shader, 4, cg.world.terrain.meshVerts, cg.world.terrain.meshQuadCount);
 	
 }
