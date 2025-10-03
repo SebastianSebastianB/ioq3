@@ -146,16 +146,114 @@ void	CG_Trace( trace_t *result, const vec3_t start, const vec3_t mins, const vec
 					 int skipNumber, int mask ) {
 	trace_t	t;
 
-	// DIABLO MOD: For .world maps, we DON'T have BSP collision data
-	// Instead, we rely on server-side terrain collision and accept server corrections
-	// Client prediction without proper collision data causes more jitter than accepting corrections
-	if ( cg.world.worldName[0] != '\0' ) {
-		// .world map - no BSP collision, terrain handled server-side
-		// Return "no collision" for terrain, let server handle it
+	// DIABLO MOD: Use terrain collision for .world maps (matching server logic EXACTLY)
+	if ( cg.world.worldName[0] != '\0' && cg.world.terrain.resourcesLoaded && cg.world.terrain.heightSamples ) {
+		// We have terrain heightmap - use it for collision (SAME as server SV_Trace)
+		vec3_t dir;
+		VectorSubtract(end, start, dir);
+		float dist = VectorLength(dir);
+		
+		// Initialize trace
 		memset(&t, 0, sizeof(t));
 		t.fraction = 1.0f;
 		t.entityNum = ENTITYNUM_NONE;
 		VectorCopy(end, t.endpos);
+		
+		if (dist > 0.1f && mins && maxs) {
+			VectorNormalize(dir);
+			
+			// Check downward traces for terrain collision
+			if (dir[2] < -0.1f) {
+				// Sample terrain height - EXACT same formula as RT_GetHeightAt
+				float scaleH = cg.world.terrain.scaleHorizontal;
+				float scaleV = cg.world.terrain.scaleVertical;
+				
+				// Debug: Log terrain parameters once
+				static qboolean loggedParams = qfalse;
+				if (!loggedParams) {
+					CG_Printf("^5[CLIENT TERRAIN] scaleH=%.2f scaleV=%.2f width=%d height=%d\n",
+						scaleH, scaleV, cg.world.terrain.heightmapWidth, cg.world.terrain.heightmapHeight);
+					loggedParams = qtrue;
+				}
+				
+				// Convert world coords to grid space (continuous) - SAME as server
+				float gx = start[0] / scaleH;
+				float gy = start[1] / scaleH;
+				
+				// Debug: Log terrain height calculation occasionally
+				static int traceDebugCount = 0;
+				if (traceDebugCount < 5) {
+					CG_Printf("^6[CLIENT TRACE] pos=(%.1f,%.1f,%.1f) gx=%.2f gy=%.2f\n", 
+						start[0], start[1], start[2], gx, gy);
+					traceDebugCount++;
+				}
+				
+				// Get integer grid coordinates
+				int x0 = (int)floorf(gx);
+				int y0 = (int)floorf(gy);
+				int x1 = x0 + 1;
+				int y1 = y0 + 1;
+				
+				// Clamp to valid range
+				if (x0 < 0) x0 = 0;
+				if (y0 < 0) y0 = 0;
+				if (x1 >= cg.world.terrain.heightmapWidth) x1 = cg.world.terrain.heightmapWidth - 1;
+				if (y1 >= cg.world.terrain.heightmapHeight) y1 = cg.world.terrain.heightmapHeight - 1;
+				if (x0 >= cg.world.terrain.heightmapWidth) x0 = cg.world.terrain.heightmapWidth - 1;
+				if (y0 >= cg.world.terrain.heightmapHeight) y0 = cg.world.terrain.heightmapHeight - 1;
+				
+				// Get fractional part for interpolation
+				float fx = gx - floorf(gx);
+				float fy = gy - floorf(gy);
+				
+				// Sample 4 heightmap corners (bilinear interpolation)
+				// NOTE: heightSamples are already pre-scaled by scaleV in CG_LoadHeightmap, so DON'T multiply again!
+				float h00 = cg.world.terrain.heightSamples[y0 * cg.world.terrain.heightmapWidth + x0];
+				float h10 = cg.world.terrain.heightSamples[y0 * cg.world.terrain.heightmapWidth + x1];
+				float h01 = cg.world.terrain.heightSamples[y1 * cg.world.terrain.heightmapWidth + x0];
+				float h11 = cg.world.terrain.heightSamples[y1 * cg.world.terrain.heightmapWidth + x1];
+				
+				// Bilinear interpolation
+				float h0 = h00 * (1.0f - fx) + h10 * fx;
+				float h1 = h01 * (1.0f - fx) + h11 * fx;
+				float terrainHeight = h0 * (1.0f - fy) + h1 * fy;
+				
+				// Debug: Log calculated terrain height
+				if (traceDebugCount < 5) {
+					CG_Printf("^6[CLIENT TRACE] terrainHeight=%.2f h00=%.2f h10=%.2f h01=%.2f h11=%.2f\n",
+						terrainHeight, h00, h10, h01, h11);
+				}
+				
+				float startBottom = start[2] + mins[2];
+				float endBottom = end[2] + mins[2];
+				
+				// Check if we're hitting terrain (SAME logic as server)
+				if (startBottom > terrainHeight && endBottom <= terrainHeight) {
+					// Hit terrain!
+					float fractionToGround = (terrainHeight - startBottom) / (endBottom - startBottom);
+					t.fraction = (fractionToGround >= 0.0f && fractionToGround <= 1.0f) ? fractionToGround : 1.0f;
+					t.entityNum = ENTITYNUM_WORLD;
+					t.endpos[0] = start[0];
+					t.endpos[1] = start[1];
+					t.endpos[2] = terrainHeight - mins[2];
+					
+					// Set normal (up)
+					t.plane.normal[0] = 0.0f;
+					t.plane.normal[1] = 0.0f;
+					t.plane.normal[2] = 1.0f;
+					t.plane.dist = terrainHeight;
+					t.surfaceFlags = 0;
+					t.contents = CONTENTS_SOLID;
+				} else if (startBottom <= terrainHeight) {
+					// Start below terrain - startsolid
+					t.fraction = 0.0f;
+					t.allsolid = qtrue;
+					t.startsolid = qtrue;
+					t.entityNum = ENTITYNUM_WORLD;
+					VectorCopy(start, t.endpos);
+				}
+			}
+		}
 	} else {
 		// Standard BSP collision for .bsp maps
 		trap_CM_BoxTrace ( &t, start, end, mins, maxs, 0, mask);
@@ -444,13 +542,6 @@ void CG_PredictPlayerState( void ) {
 	// demo playback just copies the moves
 	if ( cg.demoPlayback || (cg.snap->ps.pm_flags & PMF_FOLLOW) ) {
 		CG_InterpolatePlayerState( qfalse );
-		return;
-	}
-
-	// DIABLO MOD: Disable prediction for .world maps (no BSP collision data)
-	// Server handles terrain collision, client just interpolates
-	if ( cg.world.worldName[0] != '\0' ) {
-		CG_InterpolatePlayerState( qtrue );
 		return;
 	}
 

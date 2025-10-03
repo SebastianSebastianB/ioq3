@@ -641,6 +641,14 @@ void SV_Trace( trace_t *results, const vec3_t start, vec3_t mins, vec3_t maxs, c
 			if (dir[2] < -0.1f) {  // Downward trace (Z component negative)
 				float terrainHeight = RT_GetHeightAt(g_terrainHandle, start[0], start[1]);
 				
+				// Debug: Log server terrain height occasionally
+				static int serverTraceDebugCount = 0;
+				if (serverTraceDebugCount < 5) {
+					Com_Printf("^1[SERVER TRACE] pos=(%.1f,%.1f,%.1f) terrainHeight=%.2f\n",
+						start[0], start[1], start[2], terrainHeight);
+					serverTraceDebugCount++;
+				}
+				
 				// Calculate bottom of bounding box at start and end positions
 				float startBottom = start[2] + mins[2];  // mins[2] is negative, so this subtracts
 				float endBottom = end[2] + mins[2];
