@@ -16,6 +16,14 @@ typedef struct worldDefinition_s {
 	qboolean	playerStartOriginSet;
 	vec3_t		playerStartAngles;
 	qboolean	playerStartAnglesSet;
+	
+	// Terrain data - MUST match client cg_worldInfo_t.terrain!
+	struct {
+		qboolean	enabled;
+		char		heightmap[MAX_QPATH];
+		float		scaleHorizontal;
+		float		scaleVertical;
+	} terrain;
 } worldDefinition_t;
 
 static worldDefinition_t g_world;
@@ -61,6 +69,40 @@ static qboolean G_ParseWorldVec3( const char *json, const char *jsonEnd, vec3_t 
 
 	
 	return qtrue;
+}
+
+static void G_ParseWorldTerrain( const char *terrainJson, const char *jsonEnd ) {
+	const char *value;
+
+	if ( !terrainJson || JSON_ValueGetType( terrainJson, jsonEnd ) != JSONTYPE_OBJECT ) {
+		return;
+	}
+
+	g_world.terrain.enabled = qtrue;
+
+	// Parse heightmap path
+	value = JSON_ObjectGetNamedValue( terrainJson, jsonEnd, "heightmap" );
+	if ( value && JSON_ValueGetString( value, jsonEnd, g_world.terrain.heightmap, sizeof(g_world.terrain.heightmap) ) ) {
+		G_Printf( "^2[G_ParseWorldTerrain] heightmap='%s'\n", g_world.terrain.heightmap );
+	}
+
+	// Parse scale object
+	value = JSON_ObjectGetNamedValue( terrainJson, jsonEnd, "scale" );
+	if ( value && JSON_ValueGetType( value, jsonEnd ) == JSONTYPE_OBJECT ) {
+		const char *scaleValue;
+
+		scaleValue = JSON_ObjectGetNamedValue( value, jsonEnd, "horizontal" );
+		if ( scaleValue ) {
+			g_world.terrain.scaleHorizontal = JSON_ValueGetFloat( scaleValue, jsonEnd );
+			G_Printf( "^2[G_ParseWorldTerrain] scaleHorizontal=%.2f\n", g_world.terrain.scaleHorizontal );
+		}
+
+		scaleValue = JSON_ObjectGetNamedValue( value, jsonEnd, "vertical" );
+		if ( scaleValue ) {
+			g_world.terrain.scaleVertical = JSON_ValueGetFloat( scaleValue, jsonEnd );
+			G_Printf( "^2[G_ParseWorldTerrain] scaleVertical=%.2f\n", g_world.terrain.scaleVertical );
+		}
+	}
 }
 
 static void G_ParseWorldPlayerStart( const char *objectsJson, const char *jsonEnd ) {
@@ -181,6 +223,8 @@ qboolean G_LoadWorldDefinition( const char *mapName ) {
 		}
 	}
 
+	// Parse terrain data - CRITICAL for server/client sync!
+	G_ParseWorldTerrain( JSON_ObjectGetNamedValue( buffer, jsonEnd, "terrain" ), jsonEnd );
 	
 	G_ParseWorldPlayerStart( JSON_ObjectGetNamedValue( buffer, jsonEnd, "objects" ), jsonEnd );
 	
@@ -214,6 +258,18 @@ const char *G_WorldGetSkybox( void ) {
 		return NULL;
 	}
 	return g_world.skyboxShader[0] ? g_world.skyboxShader : NULL;
+}
+
+qboolean G_WorldGetTerrainEnabled( void ) {
+	return g_world.active && g_world.terrain.enabled;
+}
+
+float G_WorldGetTerrainScaleHorizontal( void ) {
+	return g_world.terrain.scaleHorizontal;
+}
+
+float G_WorldGetTerrainScaleVertical( void ) {
+	return g_world.terrain.scaleVertical;
 }
 
 void G_InitWorldForDefinition( void ) {

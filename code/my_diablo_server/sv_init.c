@@ -521,8 +521,56 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 						heights[i] = pixels[i] / 255.0f;
 					}
 					
-					// FIXED: Use correct scales matching my_level.world (horizontal=8, vertical=64)
-					g_terrainHandle = RT_CreateFromHeights(heights, width, height, 8.0f, 64.0f);
+					// Parse .world file to get terrain scales (same as qagame will do)
+					float scaleH = 64.0f;  // default for my_level3.world
+					float scaleV = 1920.0f; // default for my_level3.world
+					
+					// Try to read scales from .world file
+					{
+						char worldPath[MAX_QPATH];
+						char mapName[MAX_QPATH];
+						
+						// Remove .bsp extension if present
+						Q_strncpyz(mapName, server, sizeof(mapName));
+						char* ext = strstr(mapName, ".bsp");
+						if (ext) {
+							*ext = '\0';
+						}
+						
+						Com_sprintf(worldPath, sizeof(worldPath), "maps/%s.world", mapName);
+						
+						fileHandle_t wf;
+						int worldLen = FS_FOpenFileRead(worldPath, &wf, qfalse);
+						if (worldLen > 0 && wf) {
+							char* worldBuf = (char*)malloc(worldLen + 1);
+							FS_Read(worldBuf, worldLen, wf);
+							FS_FCloseFile(wf);
+							worldBuf[worldLen] = '\0';
+							
+							// Simple parse for "horizontal": <number>
+							char* ph = strstr(worldBuf, "\"horizontal\"");
+							if (ph) {
+								ph += 12; // skip "horizontal"
+								while (*ph && (*ph == ' ' || *ph == ':' || *ph == '\t')) ph++;
+								scaleH = atof(ph);
+							}
+							
+							// Simple parse for "vertical": <number>
+							char* pv = strstr(worldBuf, "\"vertical\"");
+							if (pv) {
+								pv += 10; // skip "vertical"
+								while (*pv && (*pv == ' ' || *pv == ':' || *pv == '\t')) pv++;
+								scaleV = atof(pv);
+							}
+							
+							free(worldBuf);
+							Com_Printf("^2Loaded terrain scales from %s: horizontal=%.2f vertical=%.2f\n", worldPath, scaleH, scaleV);
+						} else {
+							Com_Printf("^3Using default terrain scales: horizontal=%.2f vertical=%.2f\n", scaleH, scaleV);
+						}
+					}
+					
+					g_terrainHandle = RT_CreateFromHeights(heights, width, height, scaleH, scaleV);
 					free(heights);
 					
 					if (g_terrainHandle) {
