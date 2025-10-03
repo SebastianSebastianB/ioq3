@@ -476,22 +476,22 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 			g_terrainHandle = NULL;
 		}
 		
-		// TEMPORARY: Create dummy flat terrain (128x128) for testing
+		// TEMPORARY: Create dummy flat terrain (64x64) for testing
 		// TODO: Load from .world file when file loading is implemented
 		Com_Printf("^2Initializing terrain collision system...\n");
-		int terrainWidth = 128;
-		int terrainHeight = 128;
+		int terrainWidth = 64;
+		int terrainHeight = 64;
 		float* heights = (float*)malloc(terrainWidth * terrainHeight * sizeof(float));
 		if (heights) {
 			// Flat terrain at height 50 units (to catch falling players)
 			for (int i = 0; i < terrainWidth * terrainHeight; i++) {
-				heights[i] = 50.0f / 16.0f; // scaleV=16.0, so 50/16 = 3.125 in heightmap units
+				heights[i] = 50.0f / 64.0f; // scaleV=64.0, so 50/64 = 0.78125 in heightmap units
 			}
-			g_terrainHandle = RT_CreateFromHeights(heights, terrainWidth, terrainHeight, 32.0f, 16.0f);
+			g_terrainHandle = RT_CreateFromHeights(heights, terrainWidth, terrainHeight, 64.0f, 64.0f);
 			free(heights);
 			
 			if (g_terrainHandle) {
-				Com_Printf("^2SUCCESS: Terrain collision system initialized (128x128 flat terrain at height 50)\n");
+				Com_Printf("^2SUCCESS: Terrain collision system initialized (64x64 flat terrain at height 50)\n");
 			} else {
 				Com_Printf("^1ERROR: RT_CreateFromHeights failed!\n");
 			}

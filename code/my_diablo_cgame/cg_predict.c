@@ -207,11 +207,12 @@ void	CG_Trace( trace_t *result, const vec3_t start, const vec3_t mins, const vec
 				float fy = gy - floorf(gy);
 				
 				// Sample 4 heightmap corners (bilinear interpolation)
-				// NOTE: heightSamples are already pre-scaled by scaleV in CG_LoadHeightmap, so DON'T multiply again!
-				float h00 = cg.world.terrain.heightSamples[y0 * cg.world.terrain.heightmapWidth + x0];
-				float h10 = cg.world.terrain.heightSamples[y0 * cg.world.terrain.heightmapWidth + x1];
-				float h01 = cg.world.terrain.heightSamples[y1 * cg.world.terrain.heightmapWidth + x0];
-				float h11 = cg.world.terrain.heightSamples[y1 * cg.world.terrain.heightmapWidth + x1];
+				// NOTE: heightSamples contain NORMALIZED values (0.0-1.0), so multiply by scaleV to get world height
+				// This matches RT_GetHeightAt behavior: h->h[...] * h->scaleV
+				float h00 = cg.world.terrain.heightSamples[y0 * cg.world.terrain.heightmapWidth + x0] * scaleV;
+				float h10 = cg.world.terrain.heightSamples[y0 * cg.world.terrain.heightmapWidth + x1] * scaleV;
+				float h01 = cg.world.terrain.heightSamples[y1 * cg.world.terrain.heightmapWidth + x0] * scaleV;
+				float h11 = cg.world.terrain.heightSamples[y1 * cg.world.terrain.heightmapWidth + x1] * scaleV;
 				
 				// Bilinear interpolation
 				float h0 = h00 * (1.0f - fx) + h10 * fx;

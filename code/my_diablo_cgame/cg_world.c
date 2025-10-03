@@ -358,7 +358,9 @@ static qboolean CG_LoadTerrainHeightmap(void)
 	for (int i = 0; i < sampleCount; ++i)
 	{
 		float normalized = pixels[i] / 255.0f;
-		s_heightSamples[i] = normalized * cg.world.terrain.scaleVertical;
+		// Store NORMALIZED values (0.0-1.0), NOT scaled! Match RT_CreateFromHeights behavior.
+		// Scaling happens later in CG_Trace (multiply by scaleV), just like RT_GetHeightAt does.
+		s_heightSamples[i] = normalized;
 	}
 
 	stbi_image_free(pixels);
