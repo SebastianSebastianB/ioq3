@@ -38,6 +38,9 @@ void		*pm_terrain_handle = NULL;
 // Serwer: trap_RT_GetHeightAt, Klient: CG_GetTerrainHeightAt
 float (*pm_get_terrain_height)(float x, float y) = NULL;
 
+// ✨ NOWE: Skala pionowa terenu z pliku .world (dla dynamicznej tolerancji)
+float pm_terrain_vertical_scale = 0.0f;
+
 // movement parameters
 float	pm_stopspeed = 100.0f;
 float	pm_duckScale = 0.25f;
@@ -1115,10 +1118,11 @@ static void PM_GroundTrace( void ) {
 	vec3_t		point;
 	trace_t		trace;
 
-	// 🔥 NOWA LOGIKA: Dla terenu używamy bezpośrednio GetHeightAt zamiast trace
+	// 🔥 PROFESJONALNA LOGIKA: Dla terenu używamy bezpośrednio GetHeightAt zamiast trace
 	// Eliminuje to jitter spowodowany rozbieżnościami float w interpolacji trace'a
 	extern void *pm_terrain_handle;
 	extern float (*pm_get_terrain_height)(float x, float y);
+	extern float pm_terrain_vertical_scale;  // ✨ NOWE: Dynamiczna skala z .world
 	
 	// DEBUG: Sprawdź czy wskaźniki są ustawione
 	static int debugCount = 0;
@@ -1142,12 +1146,28 @@ static void PM_GroundTrace( void ) {
 			terrainDebugCount++;
 		}
 		
+		// ✨ DYNAMICZNA TOLERANCJA bazująca na vertical scale z heightmap
+		// Dla płaskich terenów (scale=16): tolerance = 8 jednostek
+		// Dla średnich wzgórz (scale=64): tolerance = 32 jednostki  
+		// Dla wysokich gór (scale=256): tolerance = 128 jednostek
+		float maxVerticalDiff = (pm_terrain_vertical_scale > 0.0f) 
+			? (pm_terrain_vertical_scale * 0.5f)  // 50% wysokości terenu
+			: 32.0f;  // Fallback gdyby scale nie był ustawiony
+		
+		// DEBUG: Pokaż dynamiczną tolerancję (tylko raz)
+		static int toleranceDebugCount = 0;
+		if (toleranceDebugCount < 1) {
+			Com_Printf("^2[DYNAMIC TOLERANCE] vertScale=%.1f maxDiff=%.1f (range: %.1f to %.1f)\n",
+				pm_terrain_vertical_scale, maxVerticalDiff, -maxVerticalDiff, maxVerticalDiff);
+			toleranceDebugCount++;
+		}
+		
 		// INTELIGENTNA TOLERANCJA:
 		// - Jeśli gracz spada (velocity[2] < 0) i jest w rozsądnej odległości: użyj heightfield
 		// - Jeśli gracz wznosi się (velocity[2] > 0, czyli skacze): NIE używaj heightfield (pozwól skoczyć!)
 		// - Jeśli gracz stoi/chodzi (velocity[2] ~= 0) i jest blisko: użyj heightfield
-		qboolean isRising = (pm->ps->velocity[2] > 100.0f);  // Gracz AKTYWNIE skacze (zwiększona wartość)
-		qboolean isCloseToTerrain = (distanceToTerrain >= -20.0f && distanceToTerrain <= 15.0f);  // Zwiększona tolerancja
+		qboolean isRising = (pm->ps->velocity[2] > 100.0f);  // Gracz AKTYWNIE skacze
+		qboolean isCloseToTerrain = (distanceToTerrain >= -maxVerticalDiff && distanceToTerrain <= maxVerticalDiff);
 		
 		// Użyj direct heightfield TYLKO gdy gracz NIE skacze i jest blisko terenu
 		if (!isRising && isCloseToTerrain) {

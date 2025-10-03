@@ -374,6 +374,12 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 		float height = RT_GetHeightAt(g_terrainHandle, worldX, worldY);
 		return PASSFLOAT(height);
 	}
+	// ✨ NOWE: Pobierz vertical scale dla dynamicznej tolerancji
+	case G_RT_GET_VERTICAL_SCALE: {
+		if (!g_terrainHandle) return PASSFLOAT(0.0f);
+		float scale = RT_GetVerticalScale(g_terrainHandle);
+		return PASSFLOAT(scale);
+	}
 	case G_RT_GET_NORMAL_AT: {
 		if (!g_terrainHandle) return 0;
 		float worldX = VMF(1);

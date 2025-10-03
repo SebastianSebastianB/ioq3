@@ -806,6 +806,13 @@ float trap_RT_GetHeightAt( float worldX, float worldY ) {
 	return UNPASSFLOAT(temp);
 }
 
+// ✨ NOWE: Pobierz vertical scale dla dynamicznej tolerancji
+float trap_RT_GetVerticalScale( void ) {
+	int temp;
+	temp = syscall( G_RT_GET_VERTICAL_SCALE );
+	return UNPASSFLOAT(temp);
+}
+
 void trap_RT_GetNormalAt( float worldX, float worldY, vec3_t normal ) {
 	syscall( G_RT_GET_NORMAL_AT, PASSFLOAT(worldX), PASSFLOAT(worldY), normal );
 }

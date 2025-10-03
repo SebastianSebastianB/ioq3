@@ -64,6 +64,10 @@ RT_API void RT_Render(RT_Handle* h, RT_EmitQuadFn emit, void* userData);
 // O(1) complexity - direct heightmap lookup with bilinear interpolation
 RT_API float RT_GetHeightAt(RT_Handle* h, float worldX, float worldY);
 
+// ✨ NOWE: Get vertical scale for dynamic tolerance in collision system
+// Returns scaleVertical from terrain configuration
+RT_API float RT_GetVerticalScale(RT_Handle* h);
+
 // Trace ray from 'start' in direction 'dir' (normalized) for 'maxDist' units
 // Returns 1 and fills 'hitPos' if ray hits terrain, 0 otherwise
 // Uses DDA (Digital Differential Analyzer) for fast raycast

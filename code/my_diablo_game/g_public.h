@@ -235,6 +235,7 @@ typedef enum {
 
 	// Terrain collision system (Diablo Mod) - start at 150 to avoid conflicts with TRAP_* (100-114)
 	G_RT_GET_HEIGHT_AT = 150,		// ( float worldX, float worldY );
+	G_RT_GET_VERTICAL_SCALE,		// ✨ NOWE: ( void ) - returns vertical scale for dynamic tolerance
 	G_RT_GET_NORMAL_AT,				// ( float worldX, float worldY, vec3_t normal );
 	G_RT_CHECK_SPHERE_COLLISION,	// ( const vec3_t center, float radius, vec3_t pushOut );
 	G_RT_TRACE_RAY,					// ( const vec3_t start, const vec3_t dir, float maxDist, vec3_t hitPos );

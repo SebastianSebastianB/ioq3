@@ -229,6 +229,12 @@ float RT_GetHeightAt(RT_Handle* h, float worldX, float worldY) {
     return height;
 }
 
+// ✨ NOWE: Get vertical scale for dynamic tolerance calculation
+float RT_GetVerticalScale(RT_Handle* h) {
+    if(!h) return 0.0f;
+    return h->scaleV;
+}
+
 // Get terrain normal at world position (for surface alignment)
 RT_Vec3 RT_GetNormalAt(RT_Handle* h, float worldX, float worldY) {
     RT_Vec3 normal = {0.0f, 0.0f, 1.0f}; // Default up

@@ -378,12 +378,18 @@ Bilinear interpolation of heightmap - matches RT_GetHeightAt exactly
 =================
 */
 float CG_GetTerrainHeightAt(float worldX, float worldY) {
+	// 🛡️ BEZPIECZEŃSTWO: Sprawdź wszystkie warunki
 	if (!cg.world.terrain.enabled || !cg.world.terrain.heightSamples) {
 		return 0.0f;
 	}
 	
 	const int width = cg.world.terrain.heightmapWidth;
 	const int height = cg.world.terrain.heightmapHeight;
+	
+	// 🛡️ Dodatkowa walidacja wymiarów
+	if (width <= 0 || height <= 0 || width > MAX_TERRAIN_DIMENSION || height > MAX_TERRAIN_DIMENSION) {
+		return 0.0f;
+	}
 	const float scaleH = cg.world.terrain.scaleHorizontal;
 	const float scaleV = cg.world.terrain.scaleVertical;
 	

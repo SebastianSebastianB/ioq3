@@ -694,18 +694,21 @@ void CG_PredictPlayerState( void ) {
 			cg_pmove.cmd.serverTime = ((cg_pmove.cmd.serverTime + pmove_msec.integer-1) / pmove_msec.integer) * pmove_msec.integer;
 		}
 
-		// 🔥 NOWE: Ustaw globalny wskaźnik do terenu dla bg_pmove.c (klient)
+		// 🔥 PROFESJONALNE: Ustaw globalny wskaźnik do terenu dla bg_pmove.c (klient)
 		// Pozwala PM_GroundTrace użyć bezpośrednio GetTerrainHeight zamiast trace
 		extern void *pm_terrain_handle;
 		extern float (*pm_get_terrain_height)(float x, float y);
+		extern float pm_terrain_vertical_scale;  // ✨ NOWE: Dynamiczna tolerancja
 		extern float CG_GetTerrainHeightAt(float worldX, float worldY);
 		
 		if (cg.world.terrain.enabled) {
 			pm_terrain_handle = (void*)1;  // Sygnalizuje że teren jest aktywny
 			pm_get_terrain_height = CG_GetTerrainHeightAt;  // Funkcja kliencka
+			pm_terrain_vertical_scale = cg.world.terrain.scaleVertical;  // ✨ Z cg.world
 		} else {
 			pm_terrain_handle = NULL;
 			pm_get_terrain_height = NULL;
+			pm_terrain_vertical_scale = 0.0f;
 		}
 
 		Pmove (&cg_pmove);
@@ -713,6 +716,7 @@ void CG_PredictPlayerState( void ) {
 		// Wyczyść wskaźniki po Pmove
 		pm_terrain_handle = NULL;
 		pm_get_terrain_height = NULL;
+		pm_terrain_vertical_scale = 0.0f;
 
 		moved = qtrue;
 
