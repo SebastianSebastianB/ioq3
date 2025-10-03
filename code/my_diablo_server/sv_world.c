@@ -681,13 +681,30 @@ void SV_Trace( trace_t *results, const vec3_t start, vec3_t mins, vec3_t maxs, c
 				}
 				else if (startBottom >= terrainHeight - 0.1f && startBottom <= terrainHeight + 2.0f) {
 					// Player is standing ON ground (bottom within small range of terrain)
-					// For ground checks, we need to report we're on solid ground
-					// This tells Pmove: "yes, there is ground under you"
+					// For ground traces, we need to tell Pmove exactly where the ground is
 					
-					// Always report ground collision with fraction 0 (immediate contact)
-					clip.trace.fraction = 0.0f;
+					// Calculate exact fraction to terrain contact point
+					float distToTerrain = startBottom - terrainHeight;
+					float traceDistance = fabsf(endBottom - startBottom);
+					
+					if (traceDistance > 0.001f) {
+						// Calculate fraction: how far along the trace until we hit terrain
+						clip.trace.fraction = distToTerrain / traceDistance;
+						
+						// Clamp to valid range
+						if (clip.trace.fraction < 0.0f) clip.trace.fraction = 0.0f;
+						if (clip.trace.fraction > 1.0f) clip.trace.fraction = 1.0f;
+					} else {
+						// No vertical movement in trace - if we're touching, fraction is 0
+						clip.trace.fraction = (distToTerrain <= 0.01f) ? 0.0f : 1.0f;
+					}
+					
 					clip.trace.entityNum = ENTITYNUM_WORLD;
-					VectorCopy(start, clip.trace.endpos);
+					
+					// Endpos is where bottom of bbox touches terrain (center position)
+					clip.trace.endpos[0] = start[0];
+					clip.trace.endpos[1] = start[1];
+					clip.trace.endpos[2] = terrainHeight - mins[2];
 					
 					// Set surface normal
 					RT_Vec3 normal = RT_GetNormalAt(g_terrainHandle, start[0], start[1]);

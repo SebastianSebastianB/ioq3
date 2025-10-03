@@ -146,9 +146,23 @@ void	CG_Trace( trace_t *result, const vec3_t start, const vec3_t mins, const vec
 					 int skipNumber, int mask ) {
 	trace_t	t;
 
-	trap_CM_BoxTrace ( &t, start, end, mins, maxs, 0, mask);
-	t.entityNum = t.fraction != 1.0 ? ENTITYNUM_WORLD : ENTITYNUM_NONE;
-	// check all other solid models
+	// DIABLO MOD: For .world maps, we DON'T have BSP collision data
+	// Instead, we rely on server-side terrain collision and accept server corrections
+	// Client prediction without proper collision data causes more jitter than accepting corrections
+	if ( cg.world.worldName[0] != '\0' ) {
+		// .world map - no BSP collision, terrain handled server-side
+		// Return "no collision" for terrain, let server handle it
+		memset(&t, 0, sizeof(t));
+		t.fraction = 1.0f;
+		t.entityNum = ENTITYNUM_NONE;
+		VectorCopy(end, t.endpos);
+	} else {
+		// Standard BSP collision for .bsp maps
+		trap_CM_BoxTrace ( &t, start, end, mins, maxs, 0, mask);
+		t.entityNum = t.fraction != 1.0 ? ENTITYNUM_WORLD : ENTITYNUM_NONE;
+	}
+	
+	// check all other solid models (entities)
 	CG_ClipMoveToEntities (start, mins, maxs, end, skipNumber, mask, &t);
 
 	*result = t;
@@ -430,6 +444,13 @@ void CG_PredictPlayerState( void ) {
 	// demo playback just copies the moves
 	if ( cg.demoPlayback || (cg.snap->ps.pm_flags & PMF_FOLLOW) ) {
 		CG_InterpolatePlayerState( qfalse );
+		return;
+	}
+
+	// DIABLO MOD: Disable prediction for .world maps (no BSP collision data)
+	// Server handles terrain collision, client just interpolates
+	if ( cg.world.worldName[0] != '\0' ) {
+		CG_InterpolatePlayerState( qtrue );
 		return;
 	}
 

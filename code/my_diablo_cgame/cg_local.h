@@ -142,6 +142,7 @@ typedef struct {
 		qhandle_t	greenShader;
 		qhandle_t	blueShader;
 		qhandle_t	splatmapShader;
+		void		*terrainHandle;  // RT_Handle* for terrain collision
 	} terrain;
 
 	qboolean	hasObjectsFile;
