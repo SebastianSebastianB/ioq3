@@ -484,8 +484,9 @@ void SV_SpawnServer( char *server, qboolean killBots ) {
 		float* heights = (float*)malloc(terrainWidth * terrainHeight * sizeof(float));
 		if (heights) {
 			// Flat terrain at height 50 units (to catch falling players)
+			// Use pixel value 200 which gives: 200/255 * 64 = 50.196... ≈ 50.20
 			for (int i = 0; i < terrainWidth * terrainHeight; i++) {
-				heights[i] = 50.0f / 64.0f; // scaleV=64.0, so 50/64 = 0.78125 in heightmap units
+				heights[i] = 200.0f / 255.0f; // Match client heightmap pixel value 200
 			}
 			g_terrainHandle = RT_CreateFromHeights(heights, terrainWidth, terrainHeight, 64.0f, 64.0f);
 			free(heights);
