@@ -936,6 +936,13 @@ void ClientThink_real( gentity_t *ent ) {
 		pm_terrain_handle = (void*)1;  // Sygnalizuje że teren jest aktywny
 		pm_get_terrain_height = trap_RT_GetHeightAt;  // Funkcja serwerowa
 		pm_terrain_vertical_scale = trap_RT_GetVerticalScale();  // ✨ Pobierz scale z renderera
+		
+		// DEBUG: Sprawdź pobr aną wartość
+		static int scaleDebugCount = 0;
+		if (scaleDebugCount < 3) {
+			G_Printf("^6[G_ACTIVE] pm_terrain_vertical_scale = %.2f\n", pm_terrain_vertical_scale);
+			scaleDebugCount++;
+		}
 	} else {
 		pm_terrain_handle = NULL;
 		pm_get_terrain_height = NULL;

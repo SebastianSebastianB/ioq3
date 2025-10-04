@@ -1112,154 +1112,117 @@ static void PM_GroundTraceMissed( void ) {
 /*
 =============
 PM_GroundTrace
+
+🏔️ PROFESJONALNY SYSTEM KOLIZJI TERRAIN - FAZA 1: PODSTAWA
 =============
+Cel: Płynne "przyklejenie" gracza do podłoża heightfield
+Metoda: Interpolacja biliniowa + bezpośrednie ustawienie pozycji Y
+Autor: System przepisany od zera zgodnie z profesjonalnym planem
 */
 static void PM_GroundTrace( void ) {
-	vec3_t		point;
 	trace_t		trace;
 
-	// 🔥 PROFESJONALNA LOGIKA: Dla terenu używamy bezpośrednio GetHeightAt zamiast trace
-	// Eliminuje to jitter spowodowany rozbieżnościami float w interpolacji trace'a
+	// === WSKAŹNIKI DO SYSTEMU TERRAIN ===
 	extern void *pm_terrain_handle;
 	extern float (*pm_get_terrain_height)(float x, float y);
-	extern float pm_terrain_vertical_scale;  // ✨ NOWE: Dynamiczna skala z .world
 	
-	// DEBUG: Sprawdź czy wskaźniki są ustawione
-	static int debugCount = 0;
-	if (debugCount < 3) {
-		Com_Printf("^5[PM_GroundTrace DEBUG] terrain_handle=%p get_height=%p\n", 
-			pm_terrain_handle, pm_get_terrain_height);
-		debugCount++;
-	}
-	
+	// === FAZA 1: HEIGHTFIELD - "PRZYKLEJENIE" DO PODŁOŻA ===
 	if (pm_terrain_handle != NULL && pm_get_terrain_height != NULL) {
-		// Pobierz wysokość terenu w pozycji gracza
+		
+		// 1. Pobierz dokładną wysokość terenu (z interpolacją biliniową w GetHeightAt)
 		float terrainHeight = pm_get_terrain_height(pm->ps->origin[0], pm->ps->origin[1]);
-		float playerBottom = pm->ps->origin[2] + pm->mins[2];  // Dolna krawędź bounding box
-		float distanceToTerrain = playerBottom - terrainHeight;
 		
-		// DEBUG: Pokaż wartości + velocity
-		static int terrainDebugCount = 0;
-		if (terrainDebugCount < 5) {
-			Com_Printf("^3[TERRAIN PATH] terrainH=%.2f playerBot=%.2f dist=%.2f velZ=%.2f\n",
-				terrainHeight, playerBottom, distanceToTerrain, pm->ps->velocity[2]);
-			terrainDebugCount++;
+		// 2. Oblicz gdzie są "stopy" gracza (dół bounding boxa)
+		float playerBottom = pm->ps->origin[2] + pm->mins[2];  // mins[2] = -24
+		float distanceFromGround = playerBottom - terrainHeight;
+		
+		// DEBUG: Pokaż co się dzieje (tylko pierwsze 5 wywołań żeby nie zaśmiecać)
+		static int debugCount = 0;
+		if (debugCount < 5) {
+			Com_Printf("^3[TERRAIN] playerBot=%.2f terrainH=%.2f dist=%.2f velXY=(%.1f,%.1f) velZ=%.1f\n",
+				playerBottom, terrainHeight, distanceFromGround,
+				pm->ps->velocity[0], pm->ps->velocity[1], pm->ps->velocity[2]);
+			debugCount++;
 		}
 		
-		// ✨ DYNAMICZNA TOLERANCJA bazująca na vertical scale z heightmap
-		// Dla płaskich terenów (scale=16): tolerance = 8 jednostek
-		// Dla średnich wzgórz (scale=64): tolerance = 32 jednostki  
-		// Dla wysokich gór (scale=256): tolerance = 128 jednostek
-		float maxVerticalDiff = (pm_terrain_vertical_scale > 0.0f) 
-			? (pm_terrain_vertical_scale * 0.5f)  // 50% wysokości terenu
-			: 32.0f;  // Fallback gdyby scale nie był ustawiony
-		
-		// DEBUG: Pokaż dynamiczną tolerancję (tylko raz)
-		static int toleranceDebugCount = 0;
-		if (toleranceDebugCount < 1) {
-			Com_Printf("^2[DYNAMIC TOLERANCE] vertScale=%.1f maxDiff=%.1f (range: %.1f to %.1f)\n",
-				pm_terrain_vertical_scale, maxVerticalDiff, -maxVerticalDiff, maxVerticalDiff);
-			toleranceDebugCount++;
-		}
-		
-		// INTELIGENTNA TOLERANCJA:
-		// - Jeśli gracz spada (velocity[2] < 0) i jest w rozsądnej odległości: użyj heightfield
-		// - Jeśli gracz wznosi się (velocity[2] > 0, czyli skacze): NIE używaj heightfield (pozwól skoczyć!)
-		// - Jeśli gracz stoi/chodzi (velocity[2] ~= 0) i jest blisko: użyj heightfield
-		qboolean isRising = (pm->ps->velocity[2] > 100.0f);  // Gracz AKTYWNIE skacze
-		qboolean isCloseToTerrain = (distanceToTerrain >= -maxVerticalDiff && distanceToTerrain <= maxVerticalDiff);
-		
-		// Użyj direct heightfield TYLKO gdy gracz NIE skacze i jest blisko terenu
-		if (!isRising && isCloseToTerrain) {
-			// ✅ PROFESJONALNE PODEJŚCIE: Ustaw trace result tak jak w Q3
-			Com_Memset(&trace, 0, sizeof(trace));
+		// 3. Sprawdź czy gracz jest BLISKO lub PONIŻEJ terenu (tolerance 0.25 jednostki)
+		// Zwiększona tolerancja (+0.25) oznacza że nawet jak gracz jest minimalnie NAD terenem,
+		// traktujemy go jako "na ziemi" - eliminuje to ślizganie
+		if (distanceFromGround <= 0.25f) {
+			// ✅ PRZYKLEJENIE: Ustaw origin tak, żeby dół bounding boxa był na terenie
+			pm->ps->origin[2] = terrainHeight - pm->mins[2];
 			
-			// Jeśli gracz jest DOKŁADNIE na terenie lub minimalnie powyżej
-			if (distanceToTerrain >= -0.25f && distanceToTerrain <= 0.25f) {
-				// Jesteśmy właściwie "na" terenie
-				trace.fraction = 0.0f;
-				trace.allsolid = qfalse;
-				trace.startsolid = qfalse;
-			} else if (distanceToTerrain < -0.25f) {
-				// Jesteśmy PONIŻEJ terenu (po spawnie)
-				trace.fraction = 0.0f;
-				trace.allsolid = qfalse;
-				trace.startsolid = qtrue;  // Znacznik że musimy się podnieść
-			} else {
-				// Jesteśmy powyżej terenu (spadanie)
-				trace.fraction = distanceToTerrain / 64.0f;  // Normalizacja
-				if (trace.fraction > 1.0f) trace.fraction = 1.0f;
-				trace.allsolid = qfalse;
-				trace.startsolid = qfalse;
-			}
-			
-			// Końcowa pozycja trace zawsze pokazuje teren
-			trace.endpos[0] = pm->ps->origin[0];
-			trace.endpos[1] = pm->ps->origin[1];
-			trace.endpos[2] = terrainHeight;  // Wysokość TERENU (nie origin gracza!)
-			
-			// Pionowa normalna - czysta jak w Q3
-			VectorSet(trace.plane.normal, 0, 0, 1);
-			trace.plane.dist = terrainHeight;
-			trace.plane.type = PLANE_Z;
-			
-			trace.entityNum = ENTITYNUM_WORLD;
-			trace.contents = CONTENTS_SOLID;
-			trace.surfaceFlags = 0;
-			
-			pml.groundTrace = trace;
+			// Ustaw flagę że gracz stoi na ziemi (może skakać)
+			pm->ps->groundEntityNum = ENTITYNUM_WORLD;
 			pml.groundPlane = qtrue;
 			pml.walking = qtrue;
 			
-			// Obsługa wylądowania
-			if (pm->ps->groundEntityNum == ENTITYNUM_NONE) {
-				// Właśnie wylądowaliśmy
-				if (pm->debugLevel) {
-					Com_Printf("%i:Land on terrain\n", c_pmove);
-				}
-				
-				if (pml.previous_velocity[2] < -200) {
-					PM_CrashLand();
-					pm->ps->pm_flags |= PMF_TIME_LAND;
-					pm->ps->pm_time = 250;
-				}
-			}
-			
-			pm->ps->groundEntityNum = ENTITYNUM_WORLD;
-			
-			// NIE modyfikuj origin tutaj - pozwól standardowej fizyce Q3 to obsłużyć!
-			// PM_StepSlideMove() i inne funkcje zadbają o naturalną korekcję pozycji
-			
-			// Zero out Z velocity gdy jesteśmy na ziemi
+			// 🔥 FIX ŚLIZGANIA: Zeruj pionową prędkość gdy na ziemi
 			if (pm->ps->velocity[2] < 0) {
 				pm->ps->velocity[2] = 0;
 			}
 			
-			// Zakończ waterjump
-			if (pm->ps->pm_flags & PMF_TIME_WATERJUMP) {
-				pm->ps->pm_flags &= ~(PMF_TIME_WATERJUMP | PMF_TIME_LAND);
-				pm->ps->pm_time = 0;
+			// Wypełnij groundTrace dla kompatybilności z resztą kodu
+			Com_Memset(&trace, 0, sizeof(trace));
+			trace.fraction = 0.0f;
+			trace.endpos[0] = pm->ps->origin[0];
+			trace.endpos[1] = pm->ps->origin[1];
+			trace.endpos[2] = terrainHeight;
+			VectorSet(trace.plane.normal, 0, 0, 1);  // Płaska normalna (pionowo)
+			trace.plane.dist = terrainHeight;
+			trace.entityNum = ENTITYNUM_WORLD;
+			trace.contents = CONTENTS_SOLID;
+			trace.surfaceFlags = 0;  // 🔥 WAŻNE: Brak flag = normalna powierzchnia (NIE śliska!)
+			pml.groundTrace = trace;
+			
+			if (debugCount < 5) {
+				Com_Printf("^2[ON GROUND] Gracz przyklejony do terenu\n");
 			}
 			
-			return;  // ✅ GOTOWE - ominięto cały trace pipeline!
+			return;  // ✅ Koniec - gracz na ziemi
 		}
 		
-		// Jesteśmy za daleko od terenu - użyj standardowego trace
-		static int farDebugCount = 0;
-		if (farDebugCount < 3) {
-			Com_Printf("^1[TERRAIN] Too far from terrain: dist=%.2f\n", distanceToTerrain);
-			farDebugCount++;
+		// 4. Jeśli gracz jest WYRAŹNIE POWYŻEJ terenu (>0.25) - pozwól grawitacji działać
+		// Nie robimy NIC - grawitacja w PM_Accelerate() ściągnie gracza w dół
+		// Przy następnym PM_GroundTrace() gdy będzie blisko/poniżej terenu - przyklejenie zadziała
+		
+		// Ustaw flagę że gracz jest W POWIETRZU
+		pm->ps->groundEntityNum = ENTITYNUM_NONE;
+		pml.groundPlane = qfalse;
+		pml.walking = qfalse;
+		
+		// Wypełnij groundTrace dla kompatybilności (pusty trace = no ground)
+		Com_Memset(&trace, 0, sizeof(trace));
+		trace.fraction = 1.0f;  // Pełna frakcja = nie trafiono ziemi
+		trace.endpos[0] = pm->ps->origin[0];
+		trace.endpos[1] = pm->ps->origin[1];
+		trace.endpos[2] = pm->ps->origin[2] - 0.25f;
+		trace.entityNum = ENTITYNUM_NONE;
+		pml.groundTrace = trace;
+		
+		if (debugCount < 5) {
+			Com_Printf("^1[IN AIR] Gracz w powietrzu, grawitacja działa\n");
 		}
+		
+		return;  // ✅ Koniec - gracz w powietrzu, grawitacja działa
 	}
 	
-	// Standardowy trace dla obiektów BSP (budynki, schody, rampy)
+	// === FALLBACK: BSP TRACE (gdy nie ma systemu terrain) ===
+	// Jeśli pm_terrain_handle == NULL to znaczy że:
+	// - Jeszcze nie załadowano mapy
+	// - Gramy na standardowej mapie BSP (bez terrain)
+	// W takim przypadku użyj oryginalnego systemu Q3
+	
+	vec3_t point;
 	point[0] = pm->ps->origin[0];
 	point[1] = pm->ps->origin[1];
-	point[2] = pm->ps->origin[2] - 0.25;  // Mniejszy offset dla BSP
+	point[2] = pm->ps->origin[2] - 0.25;
 
 	pm->trace (&trace, pm->ps->origin, pm->mins, pm->maxs, point, pm->ps->clientNum, pm->tracemask);
 	pml.groundTrace = trace;
-
+	
+	// === BSP LOGIC (standardowa logika Q3 dla map BSP) ===
+	
 	// do something corrective if the trace starts in a solid...
 	if ( trace.allsolid ) {
 		if ( !PM_CorrectAllSolid(&trace) )
@@ -1299,8 +1262,6 @@ static void PM_GroundTrace( void ) {
 		if ( pm->debugLevel ) {
 			Com_Printf("%i:steep\n", c_pmove);
 		}
-		// FIXME: if they can't slide down the slope, let them
-		// walk (sharp crevices)
 		pm->ps->groundEntityNum = ENTITYNUM_NONE;
 		pml.groundPlane = qtrue;
 		pml.walking = qfalse;
@@ -1323,8 +1284,6 @@ static void PM_GroundTrace( void ) {
 			Com_Printf("%i:Land\n", c_pmove);
 		}
 		
-		// ANTI-JITTER: Only do crash land if falling fast enough
-		// Prevents constant re-landing due to small terrain interpolation differences
 		if ( pml.previous_velocity[2] < -50 ) {
 			PM_CrashLand();
 		}
@@ -1338,12 +1297,6 @@ static void PM_GroundTrace( void ) {
 	}
 
 	pm->ps->groundEntityNum = trace.entityNum;
-
-	// ANTI-JITTER: If on ground and Z velocity is very small (oscillating), zero it out
-	// This prevents micro-bouncing from terrain interpolation differences
-	if ( pm->ps->velocity[2] > -50 && pm->ps->velocity[2] < 50 ) {
-		pm->ps->velocity[2] = 0;
-	}
 
 	PM_AddTouchEnt( trace.entityNum );
 }
