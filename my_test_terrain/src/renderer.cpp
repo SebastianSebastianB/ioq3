@@ -83,7 +83,18 @@ void Renderer::RenderSky() {
 void Renderer::RenderTerrain(const TerrainData& terrain) {
     if (!terrain.heightMap) return;
     
-    glColor3f(0.3f, 0.6f, 0.2f);  // Zielony kolor terenu
+    // Włącz teksturowanie jeśli jest tekstura
+    if (terrain.hasTexture && terrain.baseTexture != 0) {
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, terrain.baseTexture);
+        glColor3f(1.0f, 1.0f, 1.0f);  // Biały kolor - tekstura będzie w pełnym kolorze
+    } else {
+        glDisable(GL_TEXTURE_2D);
+        glColor3f(0.3f, 0.6f, 0.2f);  // Zielony kolor terenu (fallback)
+    }
+    
+    // Skala tekstury - im większa wartość, tym częściej się powtarza
+    float texScale = 0.01f;  // 1 powtórzenie tekstury na 100 jednostek świata
     
     // Renderuj teren jako siatkę trójkątów
     for (int y = 0; y < terrain.height - 1; y++) {
@@ -100,9 +111,14 @@ void Renderer::RenderTerrain(const TerrainData& terrain) {
             float h0 = terrain.heightMap[idx0] * terrain.verticalScale;
             float h1 = terrain.heightMap[idx1] * terrain.verticalScale;
             
+            // Oblicz współrzędne tekstury
+            float u = worldX * texScale;
+            float v0 = worldY * texScale;
+            float v1 = worldY1 * texScale;
+            
             // Oblicz normalne (prosty aproximacja)
-            Vec3 v0(worldX, worldY, h0);
-            Vec3 v1(worldX, worldY1, h1);
+            Vec3 v0_pos(worldX, worldY, h0);
+            Vec3 v1_pos(worldX, worldY1, h1);
             
             Vec3 normal0(0, 0, 1);  // Uproszczona normalna
             Vec3 normal1(0, 0, 1);
@@ -129,12 +145,19 @@ void Renderer::RenderTerrain(const TerrainData& terrain) {
             normal1.normalize();
             
             glNormal3f(normal0.x, normal0.y, normal0.z);
+            glTexCoord2f(u, v0);
             glVertex3f(worldX, worldY, h0);
             
             glNormal3f(normal1.x, normal1.y, normal1.z);
+            glTexCoord2f(u, v1);
             glVertex3f(worldX, worldY1, h1);
         }
         glEnd();
+    }
+    
+    // Wyłącz teksturowanie po renderowaniu terenu
+    if (terrain.hasTexture) {
+        glDisable(GL_TEXTURE_2D);
     }
 }
 

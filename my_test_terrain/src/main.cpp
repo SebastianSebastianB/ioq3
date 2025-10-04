@@ -302,7 +302,10 @@ int main(int argc, char* argv[]) {
             
             if (deltaX != 0 || deltaY != 0) {
                 float sensitivity = 0.2f;
-                player.RotateView(deltaY * sensitivity, deltaX * sensitivity);
+                // Odwrócone znaki dla naturalnej kontroli myszy:
+                // -deltaY = ruch myszy w górę -> patrzenie w górę (pitch++)
+                // -deltaX = ruch myszy w prawo -> obracanie w prawo (yaw++)
+                player.RotateView(-deltaY * sensitivity, -deltaX * sensitivity);
                 
                 // Wyśrodkuj kursor
                 SetCursorPos(g_lastMouseX, g_lastMouseY);

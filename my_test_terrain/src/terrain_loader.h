@@ -15,6 +15,9 @@ public:
     // Pobiera normalną powierzchni w pozycji (x, y)
     static Vec3 GetNormalAt(const TerrainData& terrain, float worldX, float worldY);
     
+    // Ładuje teksturę z pliku (JPG, TGA, BMP)
+    static unsigned int LoadTexture(const std::string& filename);
+    
 private:
     // Pomocnicze funkcje parsowania
     static bool ParseWorldFile(const std::string& filename, TerrainData& terrain);

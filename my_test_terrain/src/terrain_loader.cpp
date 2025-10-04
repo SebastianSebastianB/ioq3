@@ -4,6 +4,25 @@
 #include <iostream>
 #include <cstring>
 #include <algorithm>
+#include <windows.h>
+#include <GL/gl.h>
+
+#pragma pack(push, 1)
+struct TGAHeader {
+    unsigned char idLength;
+    unsigned char colorMapType;
+    unsigned char imageType;
+    unsigned short colorMapOrigin;
+    unsigned short colorMapLength;
+    unsigned char colorMapDepth;
+    unsigned short xOrigin;
+    unsigned short yOrigin;
+    unsigned short width;
+    unsigned short height;
+    unsigned char pixelDepth;
+    unsigned char imageDescriptor;
+};
+#pragma pack(pop)
 
 // Pomocnicza funkcja do ładowania PGM heightmap
 static bool LoadPGM(const std::string& filename, int& width, int& height, float*& heightMap) {
@@ -107,6 +126,79 @@ static float GetJSONFloatValue(const std::string& json, const std::string& key) 
     return numStr.empty() ? 0.0f : std::stof(numStr);
 }
 
+// Funkcja ładująca teksturę TGA
+unsigned int TerrainLoader::LoadTexture(const std::string& filename) {
+    std::cout << "=== LoadTexture ===" << std::endl;
+    std::cout << "Ładowanie tekstury: " << filename << std::endl;
+    
+    std::ifstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "BŁĄD: Nie można otworzyć tekstury: " << filename << std::endl;
+        return 0;
+    }
+    
+    std::cout << "Plik otwarty, czytanie nagłówka TGA..." << std::endl;
+    
+    TGAHeader header;
+    file.read((char*)&header, sizeof(TGAHeader));
+    
+    std::cout << "TGA Header:" << std::endl;
+    std::cout << "  imageType: " << (int)header.imageType << std::endl;
+    std::cout << "  width: " << header.width << std::endl;
+    std::cout << "  height: " << header.height << std::endl;
+    std::cout << "  pixelDepth: " << (int)header.pixelDepth << std::endl;
+    
+    // Wspieramy tylko nieskompresowane RGB/RGBA (typ 2)
+    if (header.imageType != 2 || (header.pixelDepth != 24 && header.pixelDepth != 32)) {
+        std::cerr << "BŁĄD: Nieobsługiwany format TGA (typ: " << (int)header.imageType 
+                  << ", głębia: " << (int)header.pixelDepth << ")" << std::endl;
+        std::cerr << "  Obsługiwane: typ=2 (Uncompressed RGB), głębia=24 lub 32" << std::endl;
+        return 0;
+    }
+    
+    // Pomiń ID jeśli jest
+    if (header.idLength > 0) {
+        file.seekg(header.idLength, std::ios::cur);
+    }
+    
+    int width = header.width;
+    int height = header.height;
+    int bytesPerPixel = header.pixelDepth / 8;
+    int imageSize = width * height * bytesPerPixel;
+    
+    unsigned char* imageData = new unsigned char[imageSize];
+    file.read((char*)imageData, imageSize);
+    file.close();
+    
+    // TGA używa BGR/BGRA, więc zamieniamy na RGB/RGBA
+    for (int i = 0; i < imageSize; i += bytesPerPixel) {
+        unsigned char temp = imageData[i];
+        imageData[i] = imageData[i + 2];
+        imageData[i + 2] = temp;
+    }
+    
+    // Utwórz teksturę OpenGL
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    
+    GLenum format = (bytesPerPixel == 4) ? GL_RGBA : GL_RGB;
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, imageData);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    
+    delete[] imageData;
+    
+    std::cout << "Tekstura załadowana pomyślnie: " << width << "x" << height 
+              << ", format=" << (bytesPerPixel == 4 ? "RGBA" : "RGB")
+              << ", OpenGL ID=" << textureID << std::endl;
+    std::cout << "===================" << std::endl;
+    return textureID;
+}
+
 bool TerrainLoader::LoadTerrain(const std::string& filename, TerrainData& terrain) {
     std::ifstream file(filename, std::ios::binary);
     if (!file.is_open()) {
@@ -137,6 +229,7 @@ bool TerrainLoader::LoadTerrain(const std::string& filename, TerrainData& terrai
         std::string heightmapPath = GetJSONStringValue(content, "heightmap");
         float horizontalScale = GetJSONFloatValue(content, "horizontal");
         float verticalScale = GetJSONFloatValue(content, "vertical");
+        std::string baseTexturePath = GetJSONStringValue(content, "base");
         
         if (heightmapPath.empty()) {
             std::cerr << "Nie znaleziono ścieżki heightmap w JSON" << std::endl;
@@ -146,6 +239,7 @@ bool TerrainLoader::LoadTerrain(const std::string& filename, TerrainData& terrai
         std::cout << "  heightmap: " << heightmapPath << std::endl;
         std::cout << "  horizontal scale: " << horizontalScale << std::endl;
         std::cout << "  vertical scale: " << verticalScale << std::endl;
+        std::cout << "  base texture: " << baseTexturePath << std::endl;
         
         // Zbuduj pełną ścieżkę do PGM (względem katalogu .world)
         std::string worldDir = filename.substr(0, filename.find_last_of("/\\"));
@@ -164,6 +258,36 @@ bool TerrainLoader::LoadTerrain(const std::string& filename, TerrainData& terrai
         
         terrain.cellSize = horizontalScale;
         terrain.verticalScale = verticalScale;
+        
+        // Załaduj teksturę jeśli podana
+        terrain.hasTexture = false;
+        terrain.baseTexture = 0;
+        
+        if (!baseTexturePath.empty()) {
+            // Dodaj rozszerzenie .tga jeśli nie ma rozszerzenia
+            if (baseTexturePath.find('.') == std::string::npos) {
+                baseTexturePath += ".tga";
+            } else {
+                // Zamień .jpg na .tga (TGA jest prostsze do załadowania)
+                size_t extPos = baseTexturePath.find(".jpg");
+                if (extPos != std::string::npos) {
+                    baseTexturePath.replace(extPos, 4, ".tga");
+                }
+            }
+            
+            std::string texturePath = basePath + "/" + baseTexturePath;
+            std::replace(texturePath.begin(), texturePath.end(), '\\', '/');
+            
+            std::cout << "Próba załadowania tekstury: " << texturePath << std::endl;
+            
+            terrain.baseTexture = LoadTexture(texturePath);
+            if (terrain.baseTexture != 0) {
+                terrain.hasTexture = true;
+                std::cout << "Załadowano teksturę terenu (ID: " << terrain.baseTexture << ")" << std::endl;
+            } else {
+                std::cout << "UWAGA: Nie udało się załadować tekstury!" << std::endl;
+            }
+        }
         
     } else {
         std::cout << "Wykryto format tekstowy, parsowanie..." << std::endl;

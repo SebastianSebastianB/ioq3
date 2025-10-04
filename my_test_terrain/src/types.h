@@ -34,7 +34,12 @@ struct TerrainData {
     float verticalScale; // Skala pionowa
     float* heightMap;    // Tablica wysokości [height * width]
     
-    TerrainData() : width(0), height(0), cellSize(1.0f), verticalScale(1.0f), heightMap(nullptr) {}
+    // Tekstury (OpenGL texture IDs)
+    unsigned int baseTexture;     // ID tekstury bazowej
+    bool hasTexture;              // Czy załadowano teksturę
+    
+    TerrainData() : width(0), height(0), cellSize(1.0f), verticalScale(1.0f), 
+                    heightMap(nullptr), baseTexture(0), hasTexture(false) {}
     ~TerrainData() { if (heightMap) delete[] heightMap; }
 };
 
