@@ -14,6 +14,12 @@ set(DIABLO_BG_SOURCES
     "${SOURCE_DIR}/my_diablo_game/bg_slidemove.c"
 )
 
+# --- HEIGHTMAP SYSTEM ---
+set(DIABLO_HEIGHTMAP_SOURCES
+    "${SOURCE_DIR}/my_diablo_heightmap/cm_heightmap.c"
+    "${SOURCE_DIR}/my_diablo_heightmap/hm_loader.c"
+)
+
 # --- QAGAME ---
 file(GLOB QAGAME_DIABLO_SOURCES
     "${SOURCE_DIR}/my_diablo_game/g_*.c"
@@ -28,11 +34,13 @@ list(APPEND QAGAME_DIABLO_SOURCES
     ${DIABLO_SHARED_MATH}
     "${SOURCE_DIR}/qcommon/q_shared.c"
     ${DIABLO_BG_SOURCES}
+    ${DIABLO_HEIGHTMAP_SOURCES}
     "${SOURCE_DIR}/my_diablo_game/g_syscalls.c"
 )
 
 add_library(qagame_diablo SHARED ${QAGAME_DIABLO_SOURCES})
 target_compile_definitions(qagame_diablo PRIVATE QAGAME)
+target_include_directories(qagame_diablo PRIVATE "${SOURCE_DIR}/my_diablo_heightmap")
 target_link_libraries(qagame_diablo PRIVATE ${COMMON_LIBRARIES})
 set_target_properties(qagame_diablo PROPERTIES OUTPUT_NAME "qagame")
 set_output_dirs(qagame_diablo SUBDIRECTORY "my_diablo_output")

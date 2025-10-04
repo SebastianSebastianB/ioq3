@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // cmodel.c -- model loading
 
 #include "cm_local.h"
+#include "../my_diablo_heightmap/q_heightmap.h"
 
 #ifdef BSPC
 
@@ -657,6 +658,42 @@ void CM_LoadMap( const char *name, qboolean clientload, int *checksum ) {
 	// allow this to be cached if it is loaded by the server
 	if ( !clientload ) {
 		Q_strncpyz( cm.name, name, sizeof( cm.name ) );
+	}
+	
+	// === HEIGHTMAP INTEGRATION ===
+	// Próbuj załadować heightmap dla tej mapy
+	// Szukamy pliku .world zamiast .bsp
+	// Np. dla "maps/my_level3.bsp" szukamy "maps/my_level3.world"
+	char worldFile[MAX_QPATH];
+	Q_strncpyz(worldFile, name, sizeof(worldFile));
+	char *ext = strstr(worldFile, ".bsp");
+	if (ext) {
+		strcpy(ext, ".world");
+		
+		// Sprawdź czy plik .world istnieje
+		fileHandle_t f;
+		int len = FS_FOpenFileRead(worldFile, &f, qfalse);
+		if (f && len > 0) {
+			FS_FCloseFile(f);
+			
+			Com_Printf("^3=== HEIGHTMAP SYSTEM ===\n");
+			Com_Printf("^3Found world file: %s\n", worldFile);
+			
+			// Inicjalizuj system heightmap
+			CM_InitHeightmap();
+			
+			// Załaduj heightmap
+			if (CM_LoadHeightmap(worldFile, &g_worldHeightmap)) {
+				Com_Printf("^2Heightmap collision system active!\n");
+			} else {
+				Com_Printf("^1Failed to load heightmap\n");
+			}
+			Com_Printf("^3========================\n");
+		} else {
+			// Brak pliku .world - standardowa mapa BSP
+			Com_Printf("No .world file found, using standard BSP collision\n");
+			g_worldHeightmap.loaded = qfalse;
+		}
 	}
 }
 

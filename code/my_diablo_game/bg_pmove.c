@@ -26,6 +26,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "../qcommon/q_shared.h"
 #include "bg_public.h"
 #include "bg_local.h"
+#include "../my_diablo_heightmap/q_heightmap.h"
 
 pmove_t		*pm;
 pml_t		pml;
@@ -1219,6 +1220,14 @@ static void PM_GroundTrace( void ) {
 	point[2] = pm->ps->origin[2] - 0.25;
 
 	pm->trace (&trace, pm->ps->origin, pm->mins, pm->maxs, point, pm->ps->clientNum, pm->tracemask);
+	
+	// === HEIGHTMAP INTEGRATION ===
+	// Po wykonaniu standardowego BSP trace, sprawdź czy heightmapa jest załadowana
+	// i czy gracz jest w jej obszarze. Jeśli tak, heightmapa ma priorytet.
+	if (g_worldHeightmap.loaded) {
+		CM_TraceAgainstHeightmap(&g_worldHeightmap, &trace, pm->ps->origin, pm->mins, pm->maxs, point);
+	}
+	
 	pml.groundTrace = trace;
 	
 	// === BSP LOGIC (standardowa logika Q3 dla map BSP) ===

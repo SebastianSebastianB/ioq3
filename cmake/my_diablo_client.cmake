@@ -38,6 +38,9 @@ set(MY_DIABLO_COMMON_SOURCES
     ${SOURCE_DIR}/my_diablo_qcommon/vm_powerpc.c
     ${SOURCE_DIR}/my_diablo_qcommon/vm_sparc.c
     ${SOURCE_DIR}/my_diablo_qcommon/vm_x86.c
+    # Heightmap system
+    ${SOURCE_DIR}/my_diablo_heightmap/cm_heightmap.c
+    ${SOURCE_DIR}/my_diablo_heightmap/hm_loader.c
 )
 
 add_git_dependency(${SOURCE_DIR}/my_diablo_qcommon/common.c)
